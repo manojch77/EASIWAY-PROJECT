@@ -1,0 +1,147 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>EASIWAY Bus Tracker</title>
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-database-compat.js"></script>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        html, body { height: 100%; overflow: hidden; font-family: 'Orbitron', sans-serif; background: #0f172a; }
+        #map { height: 100vh; width: 100vw; }
+        
+        .bus-marker { 
+            background: linear-gradient(135deg, #00dbde, #00b4cc); border-radius: 50%; width: 36px; height: 36px;
+            display: flex; align-items: center; justify-content: center; color: white; font-weight: bold; font-size: 14px; 
+            border: 3px solid white; box-shadow: 0 0 20px #00dbde; 
+        }
+        
+        .overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: #ffffff; z-index: 1000; display: flex; align-items: center; justify-content: center; }
+        .popup { background: #ffffff; border-radius: 20px; padding: 40px; box-shadow: 0 10px 40px rgba(0,0,0,0.1); max-width: 400px; width: 90%; text-align: center; }
+        .popup h2 { color: #111827; margin-bottom: 20px; font-size: 28px; }
+        input { width: 100%; padding: 15px; margin: 10px 0; border-radius: 8px; background: #ffffff; color: #111827; font-size: 16px; box-shadow: inset 0 2px 4px rgba(0,0,0,0.05); }
+        button { width: 100%; padding: 15px; background: #ffffff; border-radius: 8px; color: #111827; font-weight: 600; font-size: 16px; cursor: pointer; box-shadow: 0 2px 8px rgba(0,0,0,0.1); }
+        button:hover { background: #f8f9fa; box-shadow: 0 4px 12px rgba(0,0,0,0.15); }
+        .error { color: #ef4444; margin-top: 12px; }
+        .hidden { display: none !important; }
+        /* Header styles removed */
+    </style>
+</head>
+<body>
+    <div id="map"></div>
+    <!-- Header removed per user request -->
+    
+    <div id="passwordOverlay" class="overlay">
+        <div class="popup">
+            <h2>EASIWAY</h2>
+            <input id="password" type="password" placeholder="Password">
+            <button onclick="authenticate()">Enter</button>
+            <div id="error" class="error hidden"></div>
+        </div>
+    </div>
+
+    <script>
+        const firebaseConfig = { apiKey: "AIzaSyA5Had1N3Zpc_brEpYvd1hUpNS8bKleTgg", projectId: "easy-22b8", databaseURL: "https://easy-22b8-default-rtdb.firebaseio.com" };
+        firebase.initializeApp(firebaseConfig);
+        const db = firebase.database();
+
+let map = L.map('map', {zoomControl: false}).setView([16.7, 81.1], 11);
+        L.tileLayer('https://mt0.google.com/vt/lyrs=m&x={x}&y={y}&z={z}').addTo(map);
+            const collegeMarker = L.marker([16.696499056086402, 81.05052784442461], {
+                icon: L.divIcon({
+                    html: '<div style="background:#10b981;color:white;border-radius:50%;width:24px;height:24px;font-weight:bold;font-size:12px;border:2px solid white;display:flex;align-items:center;justify-content:center;">C</div>',
+                    className: ''
+                })
+            }).addTo(map).bindPopup('College Campus');
+            collegeMarker._college = true; // Don't clear
+
+        let busMarker, gpsListener, studentBusId;
+        const allBusStops = {
+            1: [{name:"Auto Nagar",lat:16.43012,lng:80.98021},{name:"Old Bus Stand",lat:16.43145,lng:80.98234},{name:"Municipal Office",lat:16.43288,lng:80.98567},{name:"Temple Road",lat:16.43421,lng:80.98754},{name:"RTC Colony",lat:16.43654,lng:80.98912},{name:"College Gate",lat:16.43901,lng:80.99088}],
+            2: [{name:"Milk Dairy",lat:16.42511,lng:80.97821},{name:"Water Tank",lat:16.42755,lng:80.98122},{name:"High School",lat:16.42976,lng:80.98455},{name:"Market Yard",lat:16.43198,lng:80.98644},{name:"Railway Gate",lat:16.43433,lng:80.98877},{name:"College Gate",lat:16.43901,lng:80.99088}],
+            3: [{name:"Church Center",lat:16.42011,lng:80.97543},{name:"Post Office",lat:16.42245,lng:80.97866},{name:"Library",lat:16.42587,lng:80.98112},{name:"Main Road",lat:16.42833,lng:80.98490},{name:"Petrol Bunk",lat:16.43122,lng:80.98766},{name:"College Gate",lat:16.43901,lng:80.99088}],
+            4: [{name:"Village Center",lat:16.41522,lng:80.97033},{name:"ZP School",lat:16.41855,lng:80.97321},{name:"Bus Stop",lat:16.42177,lng:80.97644},{name:"Market Road",lat:16.42512,lng:80.97998},{name:"Hospital",lat:16.42933,lng:80.98355},{name:"College Gate",lat:16.43901,lng:80.99088}],
+            5: [{name:"Highway Point",lat:16.44012,lng:80.99521},{name:"Petrol Pump",lat:16.44245,lng:80.99711},{name:"Small Bridge",lat:16.44477,lng:80.99921},{name:"Temple",lat:16.44688,lng:81.00231},{name:"Market",lat:16.44899,lng:81.00422},{name:"College Gate",lat:16.43901,lng:80.99088}],
+            6: [{name:"Canal Road",lat:16.41022,lng:80.96533},{name:"Rice Mill",lat:16.41355,lng:80.96844},{name:"Village Stop",lat:16.41677,lng:80.97155},{name:"School",lat:16.42088,lng:80.97466},{name:"Bus Stand",lat:16.42599,lng:80.97877},{name:"College Gate",lat:16.43901,lng:80.99088}],
+            7: [{name:"New Colony",lat:16.45022,lng:80.99833},{name:"Park Area",lat:16.45255,lng:81.00044},{name:"Shopping Complex",lat:16.45477,lng:81.00255},{name:"Main Junction",lat:16.45688,lng:81.00466},{name:"Bridge End",lat:16.45899,lng:81.00677},{name:"College Gate",lat:16.43901,lng:80.99088}],
+            8: [{name:"Old Colony",lat:16.40511,lng:80.96022},{name:"Temple Street",lat:16.40844,lng:80.96333},{name:"Village Square",lat:16.41177,lng:80.96644},{name:"Primary School",lat:16.41488,lng:80.96955},{name:"Bus Stop",lat:16.41899,lng:80.97266},{name:"College Gate",lat:16.43901,lng:80.99088}],
+            9: [{name:"Market Line",lat:16.46012,lng:80.99011},{name:"Bus Depot",lat:16.46245,lng:80.99222},{name:"Railway Station",lat:16.46477,lng:80.99433},{name:"Hospital Road",lat:16.46688,lng:80.99644},{name:"School Junction",lat:16.46899,lng:80.99855},{name:"College Gate",lat:16.43901,lng:80.99088}],
+            10: [{name:"Village Gate",lat:16.47012,lng:80.97011},{name:"Canal Bridge",lat:16.47245,lng:80.97322},{name:"Rice Fields",lat:16.47477,lng:80.97633},{name:"Temple Stop",lat:16.47688,lng:80.97944},{name:"Bus Stop",lat:16.47899,lng:80.98255},{name:"College Gate",lat:16.43901,lng:80.99088}],
+            11: [{name:"Lake View",lat:16.45511,lng:80.96522},{name:"Dam Road",lat:16.45744,lng:80.96833},{name:"Hill Point",lat:16.45977,lng:80.97144},{name:"Forest Check",lat:16.46188,lng:80.97455},{name:"Village Stop",lat:16.46399,lng:80.97766},{name:"College Gate",lat:16.43901,lng:80.99088}],
+            12: [{name:"Industrial Area",lat:16.44511,lng:80.98022},{name:"Factory Road",lat:16.44744,lng:80.98233},{name:"Warehouse",lat:16.44977,lng:80.98444},{name:"Transport Office",lat:16.45188,lng:80.98655},{name:"Truck Parking",lat:16.45399,lng:80.98866},{name:"College Gate",lat:16.43901,lng:80.99088}],
+            13: [{name:"City Center",lat:16.43511,lng:80.99522},{name:"Mall",lat:16.43744,lng:80.99733},{name:"Cinema Hall",lat:16.43977,lng:80.99944},{name:"Hotel Street",lat:16.44188,lng:81.00155},{name:"Food Court",lat:16.44399,lng:81.00366},{name:"College Gate",lat:16.43901,lng:80.99088}],
+            14: [{name:"Dmart",lat:16.42844,lng:80.98244},{name:"yerukapadu down",lat:16.42839,lng:80.98700},{name:"Bus Stand",lat:16.43120,lng:80.99713},{name:"Sarath Theather",lat:16.43110,lng:80.99607},{name:"Market",lat:16.43378,lng:80.99576},{name:"Nehru Chok",lat:16.43459,lng:80.99316},{name:"Sonovision",lat:16.43624,lng:80.99252},{name:"Flavours",lat:16.43853,lng:80.99234},{name:"Yumpty stomack",lat:16.43959,lng:80.99218},{name:"MoreShop",lat:16.44015,lng:80.99206},{name:"Bank of Baroda",lat:16.44137,lng:80.99207},{name:"RCM School",lat:16.44323,lng:80.99137},{name:"Nayara petrolbunk",lat:16.44500,lng:80.99173},{name:"Ghantasala Complex",lat:16.44564,lng:80.99121},{name:"Ramesh sir stop",lat:16.45265,lng:80.98913},{name:"Jonnapadu",lat:16.48044,lng:80.97440},{name:"Dosapadu Road",lat:16.48315,lng:80.97166},{name:"Puttagunta",lat:16.51566,lng:80.96003},{name:"Perikeedu",lat:16.61512,lng:80.97157}]
+        };
+
+        function authenticate() {
+            const pass = document.getElementById('password').value.trim();
+            const error = document.getElementById('error');
+            error.classList.add('hidden');
+            
+            db.ref('students').orderByChild('password').equalTo(pass).once('value').then(snapshot => {
+                const student = snapshot.val();
+                if (student) {
+                    const roll = Object.keys(student)[0];
+                    studentBusId = student[roll].busId || 14;
+                    loginSuccess(studentBusId, roll);
+                } else {
+                    // Demo mode
+                    studentBusId = 1; // Test bus 1
+                    loginSuccess(studentBusId, 'DEMO');
+                }
+            });
+        }
+
+        function loginSuccess(busId, roll) {
+            document.getElementById('passwordOverlay').classList.add('hidden');
+            // Header removed - clean map
+            
+            // Clear old markers
+            map.eachLayer(layer => {
+                if (layer instanceof L.Marker && !layer._college) map.removeLayer(layer);
+            });
+            
+            // Load THIS bus stops ONLY
+            const stops = allBusStops[busId] || allBusStops[14];
+            stops.forEach((stop, i) => {
+                L.marker([stop.lat, stop.lng], {
+                    icon: L.divIcon({
+                        html: `<div style="background:#ef4444;color:white;border-radius:50%;width:20px;height:20px;font-weight:bold;font-size:10px;border:2px solid white;display:flex;align-items:center;justify-content:center;">${i+1}</div>`,
+                        className: ''
+                    })
+                }).addTo(map).bindPopup(`${i+1}: ${stop.name}`);
+            });
+            
+        // No status text - clean map only
+            
+            // GPS
+            const gpsRef = db.ref(`bus_locations/bus${busId}`);
+            gpsListener = gpsRef.on('value', snapshot => {
+                const loc = snapshot.val();
+                console.log("Firebase data:", loc);
+                if (loc && loc.lat !== undefined && loc.lng !== undefined) {
+                    updateBusMarker(loc.lat, loc.lng);
+                }
+            });
+        }
+
+        function updateBusMarker(lat, lng) {
+            if (busMarker) map.removeLayer(busMarker);
+            busMarker = L.marker([lat, lng], {
+                icon: L.divIcon({
+                    html: `<div class="bus-marker">${studentBusId}</div>`,
+                    iconSize: [36,36], className: '', iconAnchor: [18,18]
+                })
+            }).addTo(map);
+            map.panTo([lat, lng]);
+        // Status removed
+        }
+
+        document.addEventListener('keypress', e => e.key === 'Enter' && authenticate());
+        console.log('Ready - Test different passwords for different bus routes!');
+    </script>
+</body>
+</html>

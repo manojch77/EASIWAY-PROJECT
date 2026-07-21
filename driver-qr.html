@@ -1,0 +1,258 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>EASIWAY - Bus QR</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-database-compat.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=UberMove:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: 'UberMove', sans-serif; background: #FFFFFF; color: #000000; min-height: 100vh; }
+        .uber-green { color: #06C167; }
+        .uber-green-bg { background: #06C167; }
+        .glass { background: rgba(0,0,0,0.03); -webkit-backdrop-filter: blur(20px); backdrop-filter: blur(20px); border: 1px solid rgba(0,0,0,0.08); }
+        .qr-wrapper-entry { border-color: #06C167; }
+        .qr-wrapper-exit { border-color: #000000; }
+        .qr-refresh { animation: qrRefresh 0.5s ease-out; }
+        @keyframes qrRefresh { 0% { opacity: 0; transform: scale(0.95); } 100% { opacity: 1; transform: scale(1); } }
+    </style>
+</head>
+<body class="flex flex-col items-center justify-center min-h-screen p-4">
+    <!-- Bus Selection -->
+    <div id="bus-select" class="text-center w-full max-w-sm">
+        <img src="https://files.catbox.moe/8vijkw.svg" alt="EASIWAY" class="h-20 mx-auto mb-6">
+        <p class="text-gray-500 text-sm mb-6">Select your bus to continue</p>
+        <div class="glass rounded-2xl p-4">
+            <div class="grid grid-cols-2 gap-2" id="bus-buttons"></div>
+        </div>
+        <!-- Location Status -->
+        <div class="mt-4 glass rounded-xl p-3">
+            <div class="flex items-center justify-between">
+                <span class="text-sm text-gray-500">Location Status:</span>
+                <span id="location-status" class="text-xs font-medium px-2 py-1 rounded-full bg-gray-200 text-gray-600">Not Active</span>
+            </div>
+            <div id="location-info" class="mt-2 text-xs text-gray-500 hidden">
+                <p>Lat: <span id="lat-display">---</span></p>
+                <p>Lng: <span id="lng-display">---</span></p>
+            </div>
+            <button id="start-tracking" class="mt-2 w-full py-2 bg-[#06C167] hover:bg-[#059c55] text-white rounded-lg text-sm font-medium transition">
+                <i class="fas fa-location-arrow mr-1"></i> Start Location Tracking
+            </button>
+        </div>
+    </div>
+
+    <!-- Entry/Exit Selection -->
+    <div id="type-select" class="hidden text-center w-full max-w-sm">
+        <img src="https://files.catbox.moe/8vijkw.svg" alt="EASIWAY" class="h-16 mx-auto mb-4">
+        <p class="text-gray-600 font-medium mb-2" id="selected-bus-label">Bus 01</p>
+        <p class="text-gray-500 text-sm mb-6">Select attendance type</p>
+        <div class="space-y-3">
+            <button id="entry-btn" class="w-full p-4 glass rounded-2xl hover:border-2 hover:border-[#06C167] transition-all flex items-center gap-4">
+                <div class="w-14 h-14 rounded-xl uber-green-bg flex items-center justify-center"><i class="fas fa-sign-in-alt text-white text-xl"></i></div>
+                <div class="text-left"><h3 class="font-semibold text-lg">ENTRY</h3><p class="text-sm text-gray-500">Student boarding</p></div>
+            </button>
+            <button id="exit-btn" class="w-full p-4 glass rounded-2xl hover:border-2 hover:border-[#06C167] transition-all flex items-center gap-4">
+                <div class="w-14 h-14 rounded-xl bg-black flex items-center justify-center"><i class="fas fa-sign-out-alt text-white text-xl"></i></div>
+                <div class="text-left"><h3 class="font-semibold text-lg">EXIT</h3><p class="text-sm text-gray-500">Student alighting</p></div>
+            </button>
+        </div>
+        <button id="back-to-bus" class="mt-6 text-gray-500 hover:text-[#06C167] text-sm"><i class="fas fa-arrow-left mr-1"></i> Change Bus</button>
+    </div>
+
+    <!-- QR Display -->
+    <div id="qr-display" class="hidden w-full max-w-sm">
+        <div class="glass rounded-2xl p-4 mb-4">
+            <div class="flex items-center gap-3">
+                <img src="https://files.catbox.moe/8vijkw.svg" alt="EASIWAY" class="h-10">
+                <div><h2 class="text-lg font-semibold" id="bus-label">Bus 01</h2><p class="text-xs text-gray-500" id="qr-type-label">Entry QR</p></div>
+            </div>
+        </div>
+        <div class="glass rounded-2xl overflow-hidden">
+            <div id="type-indicator" class="uber-green-bg px-4 py-2 flex items-center justify-between">
+                <div class="flex items-center gap-2"><i id="type-icon" class="fas fa-sign-in-alt text-white"></i><span id="type-text" class="text-sm font-medium text-white">ENTRY</span></div>
+                <span class="text-sm text-white/80" id="current-time">00:00</span>
+            </div>
+            <div class="p-6">
+                <div id="qr-wrapper" class="bg-white rounded-xl p-4 mb-4 border-2 qr-wrapper-entry">
+                    <div id="qrcode" class="qr-refresh flex justify-center"></div>
+                </div>
+                <div class="space-y-2">
+                    <div class="flex justify-between items-center"><span class="text-xs text-gray-500">Token ID</span><span class="text-xs uber-green font-medium">● Active</span></div>
+                    <div class="font-mono text-xs text-gray-600 bg-gray-100 rounded-lg px-3 py-2 truncate" id="token-id">---</div>
+                </div>
+                <div class="mt-3 pt-3 border-t">
+                    <div class="flex justify-between items-center"><span class="text-xs text-gray-500">Next QR in</span><span id="countdown" class="text-sm font-bold uber-green">40s</span></div>
+                </div>
+            </div>
+        </div>
+        <button id="change-type" class="mt-4 w-full py-3 glass rounded-xl hover:bg-gray-100 transition text-sm font-medium"><i class="fas fa-exchange-alt mr-1"></i> Change Type</button>
+        <p class="mt-4 text-center text-gray-400 text-xs" id="instruction-text">Show this QR to students for entry attendance</p>
+    </div>
+
+    <!-- Toast -->
+    <div id="toast" class="fixed bottom-6 left-1/2 -translate-x-1/2 transform translate-y-full transition-transform duration-300 z-50">
+        <div class="uber-green-bg text-white px-6 py-3 rounded-full shadow-lg flex items-center gap-2">
+            <i class="fas fa-check"></i><span id="toast-message" class="text-sm font-medium">QR Active</span>
+        </div>
+    </div>
+
+    <script>
+        const firebaseConfig = { apiKey: "AIzaSyA5Had1N3Zpc_brEpYvd1hUpNS8bKleTgg", projectId: "easy-22b8", databaseURL: "https://easy-22b8-default-rtdb.firebaseio.com/" };
+        firebase.initializeApp(firebaseConfig);
+        
+        let currentBusId = null, currentType = null, currentToken = null, clockInterval = null, qrRefreshInterval = null;
+        const TOKEN_VALIDITY_SECONDS = 40;
+        let timeRemaining = TOKEN_VALIDITY_SECONDS;
+        
+        const buses = [{id:1,n:"Bus 01"},{id:2,n:"Bus 02"},{id:3,n:"Bus 03"},{id:4,n:"Bus 04"},{id:5,n:"Bus 05"},{id:6,n:"Bus 06"},{id:7,n:"Bus 07"},{id:8,n:"Bus 08"},{id:9,n:"Bus 09"},{id:10,n:"Bus 10"},{id:11,n:"Bus 11"},{id:12,n:"Bus 12"},{id:13,n:"Bus 13"},{id:14,n:"Bus 14"}];
+        
+        function initBusSelection() {
+            const c = document.getElementById('bus-buttons');
+            buses.forEach(b => {
+                const btn = document.createElement('button');
+                btn.className = 'p-3 bg-gray-100 hover:bg-[#06C167] hover:text-white rounded-xl font-medium text-sm transition-all';
+                btn.textContent = b.n;
+                btn.onclick = () => selectBus(b.id, b.n);
+                c.appendChild(btn);
+            });
+        }
+        
+        function selectBus(id, num) {
+            currentBusId = id;
+            document.getElementById('selected-bus-label').textContent = num;
+            document.getElementById('bus-label').textContent = num;
+            document.getElementById('bus-select').classList.add('hidden');
+            document.getElementById('type-select').classList.remove('hidden');
+        }
+        
+        document.getElementById('entry-btn').onclick = () => { currentType = 'entry'; showQRDisplay(); generateQR(); };
+        document.getElementById('exit-btn').onclick = () => { currentType = 'exit'; showQRDisplay(); generateQR(); };
+        document.getElementById('back-to-bus').onclick = () => { document.getElementById('type-select').classList.add('hidden'); document.getElementById('bus-select').classList.remove('hidden'); };
+        document.getElementById('change-type').onclick = () => { document.getElementById('qr-display').classList.add('hidden'); document.getElementById('type-select').classList.remove('hidden'); if(clockInterval)clearInterval(clockInterval); if(qrRefreshInterval)clearInterval(qrRefreshInterval); };
+        
+        function showQRDisplay() {
+            document.getElementById('type-select').classList.add('hidden');
+            document.getElementById('qr-display').classList.remove('hidden');
+            const ind = document.getElementById('type-indicator'), icon = document.getElementById('type-icon'), txt = document.getElementById('type-text'), wrap = document.getElementById('qr-wrapper'), instr = document.getElementById('instruction-text'), lbl = document.getElementById('qr-type-label');
+            if(currentType === 'entry') { 
+                ind.className = 'uber-green-bg px-4 py-2 flex items-center justify-between'; 
+                icon.className = 'fas fa-sign-in-alt text-white'; 
+                txt.textContent = 'ENTRY'; 
+                wrap.classList.remove('qr-wrapper-exit');
+                wrap.classList.add('qr-wrapper-entry');
+                instr.textContent = 'Show this QR to students for entry attendance'; 
+                lbl.textContent = 'Entry QR'; 
+            }
+            else { 
+                ind.className = 'bg-black px-4 py-2 flex items-center justify-between'; 
+                icon.className = 'fas fa-sign-out-alt text-white'; 
+                txt.textContent = 'EXIT'; 
+                wrap.classList.remove('qr-wrapper-entry');
+                wrap.classList.add('qr-wrapper-exit');
+                instr.textContent = 'Show this QR to students for exit attendance'; 
+                lbl.textContent = 'Exit QR'; 
+            }
+            updateClock(); clockInterval = setInterval(updateClock, 1000);
+        }
+        
+        function generateToken() {
+            const ts = Date.now(), rnd = Math.random().toString(36).substring(2,10).toUpperCase();
+            const typ = currentType === 'entry' ? 'IN' : 'OUT';
+            return { token: `BUS${currentBusId}@${typ}@${ts}#${rnd}`, timestamp: ts, busId: currentBusId, type: currentType, random: rnd };
+        }
+        
+        function generateQR() {
+            document.getElementById('qrcode').innerHTML = '';
+            currentToken = generateToken();
+            document.getElementById('token-id').textContent = currentToken.token;
+            new QRCode(document.getElementById('qrcode'), { text: JSON.stringify({token: currentToken.token, busId: currentBusId, type: currentType, timestamp: currentToken.timestamp}), width: 180, height: 180, colorDark: currentType==="entry"?"#06C167":"#000000", colorLight: "#ffffff", correctLevel: QRCode.CorrectLevel.H });
+            const c = document.getElementById('qrcode'); c.classList.remove('qr-refresh'); void c.offsetWidth; c.classList.add('qr-refresh');
+            saveTokenToFirebase(currentToken);
+            timeRemaining = TOKEN_VALIDITY_SECONDS;
+            if(qrRefreshInterval)clearInterval(qrRefreshInterval);
+            qrRefreshInterval = setInterval(() => { timeRemaining--; document.getElementById('countdown').textContent = timeRemaining + 's'; if(timeRemaining<=0){ generateQR(); } }, 1000);
+        }
+        
+        function saveTokenToFirebase(t) {
+            firebase.database().ref(`busTokens/bus${currentBusId}/${currentType}`).set({ token: t.token, busId: t.busId, type: t.type, timestamp: t.timestamp, isActive: true, generatedAt: firebase.database.ServerValue.TIMESTAMP }).then(()=>showToast(currentType==='entry'?'Entry QR Active':'Exit QR Active')).catch(e=>console.error(e));
+        }
+        
+        function updateClock() { document.getElementById('current-time').textContent = new Date().toLocaleTimeString('en-GB',{hour12:false}); }
+        function showToast(m) { const t = document.getElementById('toast'); document.getElementById('toast-message').textContent = m; t.classList.remove('translate-y-full'); setTimeout(()=>t.classList.add('translate-y-full'), 2000); }
+        
+        // Location tracking variables
+        let locationTrackingInterval = null;
+        let currentLat = null;
+        let currentLng = null;
+        
+        // Start location tracking
+        document.getElementById('start-tracking').onclick = function() {
+            if (!currentBusId) {
+                showToast('Please select a bus first');
+                return;
+            }
+            
+            if (!navigator.geolocation) {
+                showToast('Geolocation not supported');
+                return;
+            }
+            
+            // Request permission and get location
+            navigator.geolocation.getCurrentPosition(function(position) {
+                currentLat = position.coords.latitude;
+                currentLng = position.coords.longitude;
+                
+                // Update UI
+                document.getElementById('location-status').textContent = 'Active';
+                document.getElementById('location-status').className = 'text-xs font-medium px-2 py-1 rounded-full bg-green-100 text-green-700';
+                document.getElementById('location-info').classList.remove('hidden');
+                document.getElementById('lat-display').textContent = currentLat.toFixed(6);
+                document.getElementById('lng-display').textContent = currentLng.toFixed(6);
+                document.getElementById('start-tracking').innerHTML = '<i class="fas fa-sync fa-spin mr-1"></i> Sending Location...';
+                document.getElementById('start-tracking').disabled = true;
+                
+                // Send initial location
+                sendLocationToFirebase(currentLat, currentLng);
+                
+                // Start continuous tracking - send every 3 seconds
+                locationTrackingInterval = setInterval(function() {
+                    navigator.geolocation.getCurrentPosition(function(pos) {
+                        currentLat = pos.coords.latitude;
+                        currentLng = pos.coords.longitude;
+                        document.getElementById('lat-display').textContent = currentLat.toFixed(6);
+                        document.getElementById('lng-display').textContent = currentLng.toFixed(6);
+                        sendLocationToFirebase(currentLat, currentLng);
+                    }, function(err) {
+                        console.error('Location error:', err);
+                    }, { enableHighAccuracy: true, maximumAge: 1000 });
+                }, 3000);
+                
+                showToast('Location tracking started!');
+            }, function(err) {
+                showToast('Location permission denied: ' + err.message);
+            }, { enableHighAccuracy: true });
+        };
+        
+        // Send location to Firebase
+        function sendLocationToFirebase(lat, lng) {
+            if (!currentBusId || lat === null || lng === null) return;
+            
+            firebase.database().ref('buses/' + currentBusId + '/location').set({
+                lat: lat,
+                lng: lng,
+                timestamp: firebase.database.ServerValue.TIMESTAMP,
+                device_id: currentBusId.toString()
+            }).catch(function(e) {
+                console.error('Error sending location:', e);
+            });
+        }
+        
+        initBusSelection();
+    </script>
+</body>
+</html>

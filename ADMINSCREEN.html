@@ -1,0 +1,1741 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>EASIWAY Admin Dashboard</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css"></link>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.13.1/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.13.1/firebase-database-compat.js"></script>
+    <script>
+        // Use single Firebase config for everything (easy-22b8)
+        const firebaseConfig = {
+            apiKey: "AIzaSyA5Had1N3Zpc_brEpYvd1hUpNS8bKleTgg",
+            authDomain: "easy-22b8.firebaseapp.com",
+            databaseURL: "https://easy-22b8-default-rtdb.firebaseio.com",
+            projectId: "easy-22b8",
+            storageBucket: "easy-22b8.firebasestorage.app",
+            messagingSenderId: "1026420258090",
+            appId: "1:1026420258090:web:2e12ce0f0330b8109d5a53",
+            measurementId: "G-PFXRFV09Y8"
+        };
+        firebase.initializeApp(firebaseConfig);
+    </script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+        :root { --primary: #0ea5e9; --primary-dark: #0284c7; --secondary: #8b5cf6; --success: #22c55e; --warning: #f59e0b; --danger: #ef4444; --dark: #0f172a; --light: #f8fafc; --gray: #64748b; --border: #e2e8f0; }
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: 'Inter', sans-serif; background-color: #f1f5f9; color: #1e293b; }
+        .sidebar { width: 260px; background: linear-gradient(180deg, #0f172a 0%, #1e293b 100%); min-height: 100vh; position: fixed; left: 0; top: 0; z-index: 50; }
+.sidebar-header { padding: 1.5rem; border-bottom: 1px solid rgba(255,255,255,0.1); position: relative; }
+        .sidebar-close { display: none; position: absolute; right: 1rem; top: 1.5rem; background: none; border: none; color: #94a3b8; font-size: 1.5rem; cursor: pointer; }
+        .sidebar.open .sidebar-close { display: block; }
+        .sidebar { border-radius: 0 20px 20px 0; box-shadow: 4px 0 20px rgba(0,0,0,0.2); }
+        .sidebar-nav { padding: 1rem 0; }
+        .nav-item { display: flex; align-items: center; padding: 0.75rem 1.5rem; color: #94a3b8; text-decoration: none; transition: all 0.2s ease; cursor: pointer; border-left: 3px solid transparent; }
+        .nav-item:hover { background: rgba(255,255,255,0.05); color: #fff; }
+        .nav-item.active { background: rgba(14, 165, 233, 0.15); color: #0ea5e9; border-left-color: #0ea5e9; }
+        .nav-item i { width: 20px; margin-right: 0.75rem; }
+        .main-content { margin-left: 260px; min-height: 100vh; }
+@media (max-width: 768px) {
+            .sidebar { transform: translateX(-100%); transition: transform 0.3s ease; position: fixed; z-index: 100; width: 260px; }
+            .sidebar.open { transform: translateX(0); }
+            .main-content { margin-left: 0; }
+            .top-header { padding: 1rem; }
+button#mobile-menu-toggle { display: block !important; background: none; border: none; font-size: 1.5rem; color: #64748b; cursor: pointer; }
+            .sidebar-close:hover { color: white; }
+            .modal { width: 95%; max-width: 400px; }
+        }
+        @media (min-width: 769px) {
+            button#mobile-menu-toggle { display: none !important; }
+        }
+        .top-header { background: white; padding: 1rem 2rem; display: flex; justify-content: space-between; align-items: center; box-shadow: 0 1px 3px rgba(0,0,0,0.1); position: sticky; top: 0; z-index: 40; }
+        .card { background: white; border-radius: 12px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); overflow: hidden; }
+        .card-header { padding: 1.25rem; border-bottom: 1px solid #e2e8f0; font-weight: 600; color: #1e293b; }
+        .card-body { padding: 1.25rem; }
+        .stat-card { background: white; border-radius: 12px; padding: 1.5rem; box-shadow: 0 1px 3px rgba(0,0,0,0.1); transition: transform 0.2s ease; }
+        .stat-card:hover { transform: translateY(-2px); box-shadow: 0 4px 12px rgba(0,0,0,0.15); }
+        .stat-icon { width: 48px; height: 48px; border-radius: 12px; display: flex; align-items: center; justify-content: center; font-size: 1.25rem; }
+        #admin-map { height: 400px; width: 100%; border-radius: 8px; }
+        .data-table { width: 100%; border-collapse: collapse; }
+        .data-table th { background: #f8fafc; padding: 0.75rem 1rem; text-align: left; font-weight: 600; color: #475569; font-size: 0.875rem; border-bottom: 2px solid #e2e8f0; }
+        .data-table td { padding: 0.75rem 1rem; border-bottom: 1px solid #e2e8f0; font-size: 0.875rem; }
+        .data-table tr:hover { background: #f8fafc; }
+        .btn { padding: 0.5rem 1rem; border-radius: 8px; font-weight: 500; cursor: pointer; transition: all 0.2s ease; border: none; display: inline-flex; align-items: center; gap: 0.5rem; font-size: 0.875rem; }
+        .btn-primary { background: #0ea5e9; color: white; }
+        .btn-primary:hover { background: #0284c7; }
+        .btn-success { background: #22c55e; color: white; }
+        .btn-success:hover { background: #16a34a; }
+        .btn-danger { background: #ef4444; color: white; }
+        .btn-danger:hover { background: #dc2626; }
+        .btn-outline { background: white; border: 1px solid #94a3b8; color: #475569; }
+        .btn-outline:hover { background: #f1f5f9; border-color: #64748b; }
+        .btn-action-edit { background: #3b82f6; color: white; border: none; }
+        .btn-action-edit:hover { background: #2563eb; }
+        .btn-action-move { background: #8b5cf6; color: white; border: none; }
+        .btn-action-move:hover { background: #7c3aed; }
+        .btn-action-delete { background: #ef4444; color: white; border: none; }
+        .btn-action-delete:hover { background: #dc2626; }
+        .form-group { margin-bottom: 1rem; }
+        .form-label { display: block; margin-bottom: 0.5rem; font-weight: 500; color: #374151; font-size: 0.875rem; }
+        .form-input, .form-select { width: 100%; padding: 0.625rem 0.875rem; border: 1px solid #e2e8f0; border-radius: 8px; font-size: 0.875rem; }
+        .form-input:focus, .form-select:focus { outline: none; border-color: #0ea5e9; box-shadow: 0 0 0 3px rgba(14, 165, 233, 0.1); }
+        .modal-overlay { position: fixed; inset: 0; background: rgba(0, 0, 0, 0.5); display: flex; align-items: center; justify-content: center; z-index: 100; opacity: 0; visibility: hidden; transition: all 0.3s ease; }
+        .modal-overlay.active { opacity: 1; visibility: visible; }
+        .modal { background: white; border-radius: 16px; width: 90%; max-width: 500px; max-height: 90vh; overflow-y: auto; transform: scale(0.9); transition: transform 0.3s ease; }
+        .modal-overlay.active .modal { transform: scale(1); }
+        .modal-header { padding: 1.25rem; border-bottom: 1px solid #e2e8f0; display: flex; justify-content: space-between; align-items: center; }
+        .modal-body { padding: 1.25rem; }
+.modal-footer { 
+            padding: 1.25rem; 
+            border-top: 1px solid #e2e8f0; 
+            display: none;
+            justify-content: flex-end; 
+            gap: 0.75rem;
+            position: sticky;
+            bottom: 0;
+            background: white;
+            z-index: 110;
+            box-shadow: 0 -2px 10px rgba(0,0,0,0.1);
+        }
+        .modal-overlay.active .modal .modal-footer {
+            display: flex !important;
+        }
+        /* Prevent duplicate footers */
+        .modal .modal-footer:not(:last-child) {
+            display: none !important;
+        }
+        .modal-overlay.active .modal-footer {
+            opacity: 1;
+        }
+        .badge { padding: 0.25rem 0.625rem; border-radius: 9999px; font-size: 0.75rem; font-weight: 600; }
+        .badge-success { background: #dcfce7; color: #166534; }
+        .badge-warning { background: #fef3c7; color: #92400e; }
+        .badge-danger { background: #fee2e2; color: #991b1b; }
+        .badge-info { background: #dbeafe; color: #1e40af; }
+        .login-container { min-height: 100vh; display: flex; align-items: center; justify-content: center; background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%); }
+        .login-card { background: white; border-radius: 16px; padding: 2.5rem; width: 100%; max-width: 400px; box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25); }
+        .toast-container { position: fixed; top: 20px; right: 20px; z-index: 200; }
+        .toast { background: white; padding: 1rem 1.5rem; border-radius: 8px; box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1); display: flex; align-items: center; gap: 0.75rem; transform: translateX(120%); transition: transform 0.3s ease; margin-bottom: 0.5rem; }
+        .toast.show { transform: translateX(0); }
+        .toast-success { border-left: 4px solid #22c55e; }
+        .toast-error { border-left: 4px solid #ef4444; }
+        .search-box { position: relative; }
+        .search-box input { padding-left: 2.5rem; }
+        .search-box i { position: absolute; left: 0.875rem; top: 50%; transform: translateY(-50%); color: #94a3b8; }
+        .bus-marker-admin { background-color: #0ea5e9; width: 30px; height: 30px; border-radius: 50%; display: flex; align-items: center; justify-content: center; color: white; font-weight: bold; font-size: 12px; border: 3px solid white; box-shadow: 0 2px 6px rgba(0,0,0,0.3); }
+        .dropdown { position: relative; }
+        .dropdown-menu { position: absolute; top: 100%; right: 0; background: white; border-radius: 8px; box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1); min-width: 160px; opacity: 0; visibility: hidden; transform: translateY(-10px); transition: all 0.2s ease; z-index: 50; }
+        .dropdown:hover .dropdown-menu { opacity: 1; visibility: visible; transform: translateY(0); }
+        .notification-item { padding: 1rem; border-bottom: 1px solid #e2e8f0; }
+        .notification-item:hover { background: #f8fafc; }
+        .hidden { display: none; }
+        /* NUCLEAR: Hide modal footers everywhere except active modals */
+        .page-content .modal-footer,
+        .page-content .modal-overlay:not(.active),
+        main .modal-footer:not(.modal-overlay.active .modal-footer) {
+            display: none !important;
+            visibility: hidden !important;
+            opacity: 0 !important;
+        }
+    </style>
+</head>
+<body>
+    <div id="login-section" class="login-container">
+        <div class="login-card">
+            <div class="text-center mb-8">
+                <h1 class="text-2xl font-bold text-gray-800">EASIWAY Admin</h1>
+                <p class="text-gray-500 mt-1">College Bus Management System</p>
+            </div>
+            <form id="admin-login-form">
+                <div class="form-group">
+                    <label class="form-label">Admin Roll Number</label>
+                    <input type="text" id="admin-roll" class="form-input" placeholder="Enter admin roll number" required>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Password</label>
+                    <input type="password" id="admin-password" class="form-input" placeholder="Enter password" required>
+                </div>
+                <button type="submit" class="btn btn-primary w-full justify-center py-3"><i class="fas fa-sign-in-alt"></i> Login</button>
+            </form>
+        </div>
+    </div>
+
+    <div id="dashboard" class="hidden">
+        <aside class="sidebar">
+            <div class="sidebar-header">
+<h1 class="text-white text-xl font-bold flex items-center"><i class="fas fa-bus text-sky-400 mr-2"></i> EASIWAY</h1>
+                <button class="sidebar-close" onclick="toggleSidebar()"><i class="fas fa-times"></i></button>
+                <p class="text-gray-500 text-sm mt-1">Admin Panel</p>
+            </div>
+            <nav class="sidebar-nav">
+                <a class="nav-item active" data-page="dashboard"><i class="fas fa-th-large"></i> Dashboard</a>
+                <a class="nav-item" data-page="tracking"><i class="fas fa-map-marker-alt"></i> Live Tracking</a>
+                <a class="nav-item" data-page="students"><i class="fas fa-users"></i> Student Management</a>
+                <a class="nav-item" data-page="fees"><i class="fas fa-dollar-sign"></i> Fee Management</a>
+                <a class="nav-item" data-page="notifications"><i class="fas fa-bell"></i> Notifications</a>
+                <a class="nav-item" data-page="buses"><i class="fas fa-bus"></i> Bus Management</a>
+                <a class="nav-item" data-page="attendance"><i class="fas fa-clipboard-check"></i> Attendance</a>
+                <div class="mt-8 pt-4 border-t border-gray-700"><a class="nav-item text-red-400" id="logout-btn"><i class="fas fa-sign-out-alt"></i> Logout</a></div>
+            </nav>
+        </aside>
+
+        <main class="main-content">
+            <header class="top-header">
+                <div class="flex items-center gap-4">
+                    <button id="mobile-menu-toggle" onclick="toggleSidebar()"><i class="fas fa-bars"></i></button>
+                    <h2 class="text-xl font-semibold text-gray-800" id="page-title">Dashboard</h2>
+                </div>
+                <div class="flex items-center gap-4">
+                    <div class="relative dropdown">
+                        <button class="w-10 h-10 rounded-full bg-gray-100 flex items-center justify-center text-gray-600 relative" id="notification-bell">
+                            <i class="fas fa-bell"></i>
+<span id="notification-badge" class="absolute -top-1 -right-1 bg-red-500 text-white text-xs rounded-full w-5 h-5 flex items-center justify-center hidden">0</span>
+                        </button>
+                        <div class="dropdown-menu">
+                            <div class="p-3 border-b">
+                                <p class="font-semibold">Notifications</p>
+                            </div>
+                            <div id="header-notifications">
+                                <div class="p-3 text-gray-500 text-sm">No new</div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="flex items-center gap-3 pl-4 border-l">
+                        <div class="w-10 h-10 rounded-full bg-gradient-to-br from-sky-500 to-purple-500 flex items-center justify-center text-white font-bold">A</div>
+                        <div><p class="font-medium text-sm">Admin</p><p class="text-xs text-gray-500">Roll: 229</p></div>
+                    </div>
+                </div>
+            </header>
+
+            <div class="p-6" id="content-area">
+                <div id="page-dashboard" class="page-content">
+                    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-6">
+                        <div class="stat-card"><div class="flex items-center justify-between"><div><p class="text-gray-500 text-sm">Total Students</p><p class="text-2xl font-bold mt-1" id="total-students">0</p></div><div class="stat-icon bg-sky-100 text-sky-600"><i class="fas fa-users"></i></div></div></div>
+                        <div class="stat-card"><div class="flex items-center justify-between"><div><p class="text-gray-500 text-sm">Active Buses</p><p class="text-2xl font-bold mt-1" id="total-buses">0</p></div><div class="stat-icon bg-purple-100 text-purple-600"><i class="fas fa-bus"></i></div></div></div>
+                        <div class="stat-card"><div class="flex items-center justify-between"><div><p class="text-gray-500 text-sm">Fee Collected</p><p class="text-2xl font-bold mt-1" id="fee-collected">₹0</p></div><div class="stat-icon bg-green-100 text-green-600"><i class="fas fa-rupee-sign"></i></div></div></div>
+                        <div class="stat-card"><div class="flex items-center justify-between"><div><p class="text-gray-500 text-sm">Pending Dues</p><p class="text-2xl font-bold mt-1" id="pending-dues">0</p></div><div class="stat-icon bg-red-100 text-red-600"><i class="fas fa-exclamation-triangle"></i></div></div></div>
+                    </div>
+                    <div class="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-6">
+                        <div class="lg:col-span-2"><div class="card"><div class="card-header">Live Bus Map</div><div class="card-body p-0"><div id="admin-map"></div></div></div></div>
+                        <div class="card"><div class="card-header">Recent Activity</div><div class="card-body" id="recent-activity"><p class="text-gray-500 text-center py-8">Loading...</p></div></div>
+                    </div>
+                    <div class="card"><div class="card-header">Fee Overview</div><div class="card-body"><div class="grid grid-cols-1 md:grid-cols-3 gap-4"><div class="bg-green-50 rounded-lg p-4"><p class="text-sm text-green-600">Paid</p><p class="text-xl font-bold" id="fee-paid-count">0</p></div><div class="bg-yellow-50 rounded-lg p-4"><p class="text-sm text-yellow-600">Pending</p><p class="text-xl font-bold" id="fee-pending-count">0</p></div><div class="bg-red-50 rounded-lg p-4"><p class="text-sm text-red-600">Overdue</p><p class="text-xl font-bold" id="fee-overdue-count">0</p></div></div></div></div>
+                </div>
+
+                <div id="page-tracking" class="page-content hidden">
+                    <div class="card"><div class="card-header">Live Bus Tracking <span class="text-xs text-gray-500 ml-2"></span></div><div class="card-body p-0"><div id="tracking-map" style="height: 500px;"></div></div></div>
+                    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mt-6" id="bus-cards-container"></div>
+                </div>
+
+                <div id="page-students" class="page-content hidden">
+                    <div class="card">
+                        <div class="card-header flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+                            <div class="flex items-center gap-4"><div class="search-box"><i class="fas fa-search"></i><input type="text" id="student-search" class="form-input pl-10" placeholder="Search..."></div><select id="bus-filter" class="form-select w-40"><option value="">All Buses</option></select></div>
+                            <button class="btn btn-primary" onclick="openModal('student')"><i class="fas fa-plus"></i> Add Student</button>
+                        </div>
+                        <div class="card-body p-0"><table class="data-table"><thead><tr><th>Roll</th><th>Name</th><th>Bus</th><th>Boarding Point</th><th>Bus Fee</th><th>Phone</th><th>Fee Status</th><th>Actions</th></tr></thead><tbody id="students-tbody"></tbody></table></div>
+                    </div>
+                </div>
+
+                <div id="page-fees" class="page-content hidden">
+                    <div class="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
+                        <div class="stat-card"><p class="text-gray-500 text-sm">Total Fee</p><p class="text-2xl font-bold" id="total-fee-amount">₹0</p></div>
+                        <div class="stat-card"><p class="text-gray-500 text-sm">Collected</p><p class="text-2xl font-bold text-green-600" id="total-collected">₹0</p></div>
+                        <div class="stat-card"><p class="text-gray-500 text-sm">Due</p><p class="text-2xl font-bold text-yellow-600" id="total-due">₹0</p></div>
+                        <div class="stat-card"><p class="text-gray-500 text-sm">Collection Rate</p><p class="text-2xl font-bold text-sky-600" id="collection-rate">0%</p></div>
+                    </div>
+                    <div class="card">
+                        <div class="card-header flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+                            <div class="flex items-center gap-4">
+                                <div class="search-box"><i class="fas fa-search"></i><input type="text" id="fee-search" class="form-input pl-10" placeholder="Search..."></div>
+                                <select id="fee-status-filter" class="form-select w-32"><option value="">All Status</option><option value="paid">Paid</option><option value="pending">Pending</option><option value="overdue">Overdue</option></select>
+                                <select id="fee-bus-filter" class="form-select w-40"><option value="">All Buses</option></select>
+                            </div>
+                            <button class="btn btn-primary" onclick="openModal('fee')"><i class="fas fa-plus"></i> Add Fee</button>
+                        </div>
+                        <div class="card-body p-0"><table class="data-table"><thead><tr><th>Roll</th><th>Name</th><th>Bus No.</th><th>Boarding Point</th><th>Total</th><th>Paid</th><th>Due</th><th>Status</th><th>Actions</th></tr></thead><tbody id="fee-tbody"></tbody></table></div>
+                    </div>
+                </div>
+
+                <div id="page-notifications" class="page-content hidden">
+                    <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                        <div class="card">
+                            <div class="card-header">Send Notification</div>
+                            <div class="card-body">
+                                <div class="form-group"><label class="form-label">Type</label><select id="notification-type" class="form-select"><option value="fee_reminder">Fee Reminder</option><option value="transport">Transport</option><option value="emergency">Emergency</option></select></div>
+                                <div class="form-group"><label class="form-label">Send To</label><select id="notification-target" class="form-select"><option value="all">All</option><option value="bus">Bus</option><option value="individual">Student</option></select></div>
+                                <div class="form-group hidden" id="bus-select-group"><label class="form-label">Bus</label><select id="notification-bus" class="form-select"></select></div>
+                                <div class="form-group hidden" id="student-select-group"><label class="form-label">Student</label><select id="notification-student" class="form-select"></select></div>
+                                <div class="form-group"><label class="form-label">Message</label><textarea id="notification-message" class="form-input" rows="4"></textarea></div>
+                                <button class="btn btn-primary w-full" onclick="sendNotification()"><i class="fas fa-paper-plane"></i> Send</button>
+                            </div>
+                        </div>
+                        <div class="card"><div class="card-header">History</div><div class="card-body p-0 max-h-[500px] overflow-y-auto" id="notification-history"></div></div>
+                    </div>
+                </div>
+
+                <div id="page-buses" class="page-content hidden">
+                    <div class="card">
+                        <div class="card-header flex justify-between items-center">
+                            <span>Bus Management</span>
+                            <button class="btn btn-primary" onclick="openModal('bus')"><i class="fas fa-plus"></i> Add Bus</button>
+                        </div>
+                        <div class="card-body p-0"><table class="data-table"><thead><tr><th>Bus ID</th><th>Bus Number</th><th>Route</th><th>Driver</th><th>Contact</th><th>Students</th><th>Status</th><th>Actions</th></tr></thead><tbody id="buses-tbody"></tbody></table></div>
+                    </div>
+                </div>
+
+                <div id="page-attendance" class="page-content hidden">
+                    <div class="card mb-6">
+                        <div class="card-header flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+                            <div class="flex items-center gap-4">
+                                <select id="attendance-bus-filter" class="form-select w-48" onchange="loadAttendanceData()">
+                                    <option value="">Select Bus</option>
+                                </select>
+                                <select id="attendance-type-filter" class="form-select w-40" onchange="loadAttendanceData()">
+                                    <option value="">All</option>
+                                    <option value="entry">Entry Only</option>
+                                    <option value="exit">Exit Only</option>
+                                </select>
+                            </div>
+                            <button class="btn btn-primary" onclick="loadAttendanceData()"><i class="fas fa-sync-alt"></i> Refresh</button>
+                        </div>
+                        <div class="card-body">
+                            <div class="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
+                                <div class="stat-card"><p class="text-gray-500 text-sm">Total Students</p><p class="text-2xl font-bold" id="att-total-students">0</p></div>
+                                <div class="stat-card"><p class="text-gray-500 text-sm">Present (Entry)</p><p class="text-2xl font-bold text-green-600" id="att-present">0</p></div>
+                                <div class="stat-card"><p class="text-gray-500 text-sm">Absent</p><p class="text-2xl font-bold text-red-600" id="att-absent">0</p></div>
+                                <div class="stat-card"><p class="text-gray-500 text-sm">Marked Exit</p><p class="text-2xl font-bold text-sky-600" id="att-exit">0</p></div>
+                            </div>
+                            <table class="data-table">
+                                <thead>
+                                    <tr>
+                                        <th>Roll</th>
+                                        <th>Name</th>
+                                        <th>Bus</th>
+                                        <th>Entry Time</th>
+                                        <th>Exit Time</th>
+                                        <th>Status</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="attendance-tbody">
+                                    <tr><td colspan="6" class="text-center py-8 text-gray-500">Select a bus to view attendance</td></tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <div class="modal-overlay" id="student-modal">
+        <div class="modal">
+            <div class="modal-header"><h3 class="text-lg font-semibold" id="student-modal-title">Add Student</h3><button class="text-gray-400" onclick="closeModal('student')"><i class="fas fa-times"></i></button></div>
+            <div class="modal-body">
+                <input type="hidden" id="student-edit-roll">
+<div class="form-group"><label class="form-label">Roll Number *</label><input type="text" id="student-roll" class="form-input"></div>
+<div class="form-group"><label class="form-label">Name *</label><input type="text" id="student-name" class="form-input"></div>
+<select id="student-bus" class="form-select" onchange="updateBoardingPoints()"><option value="">Select Bus</option></select>
+<select id="student-boarding" class="form-select"><option value="">Select Stop</option></select>
+<div class="form-group"><label class="form-label">Bus Fee</label><input type="number" id="student-fee" class="form-input" placeholder="Enter bus fee"></div>
+                <div class="form-group"><label class="form-label">Phone</label><input type="tel" id="student-phone" class="form-input"></div>
+                <div class="form-group"><label class="form-label">Parent Phone</label><input type="tel" id="student-parent-phone" class="form-input"></div>
+<div class="form-group"><label class="form-label">Password (leave empty to keep current)</label><input type="password" id="student-password" class="form-input" placeholder="New password"></div>
+            </div>
+<div class="modal-footer"><button class="btn btn-outline" onclick="closeModal('student')">Cancel</button><button class="btn btn-primary" onclick="saveStudent()">Save</button></div>
+        </div>
+    </div>
+
+<div class="modal-overlay" id="fee-modal">
+        <div class="modal">
+            <div class="modal-header"><h3 class="text-lg font-semibold" id="fee-modal-title">Add Fee Record</h3><button class="text-gray-400 hover:text-gray-600" onclick="closeModal('fee')"><i class="fas fa-times"></i></button></div>
+            <div class="modal-body">
+                <input type="hidden" id="fee-edit-roll">
+                <div class="form-group">
+                    <label class="form-label">Student Roll Number <span class="text-red-500">*</span></label>
+                    <input type="text" id="fee-roll" class="form-input" placeholder="Enter roll number" onchange="loadStudentFee()" required>
+                </div>
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div class="form-group">
+                        <label class="form-label">Student Name</label>
+                        <input type="text" id="fee-student-name" class="form-input bg-gray-50" readonly>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Bus Number</label>
+                        <input type="text" id="fee-bus-number" class="form-input bg-gray-50" readonly>
+                    </div>
+                </div>
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div class="form-group">
+                        <label class="form-label">Boarding Point</label>
+                        <input type="text" id="fee-boarding" class="form-input bg-gray-50" readonly>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Total Fee <span class="text-red-500">*</span></label>
+                        <input type="number" id="fee-total" class="form-input" placeholder="Enter total bus fee" required min="0">
+                    </div>
+                </div>
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div class="form-group">
+                        <label class="form-label">Paid Amount</label>
+                        <input type="number" id="fee-paid" class="form-input" value="0" min="0">
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Payment Mode</label>
+                        <select id="fee-mode" class="form-select">
+                            <option value="cash">Cash</option>
+                            <option value="online">Online UPI</option>
+                            <option value="bank">Bank Transfer</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Payment Date</label>
+                    <input type="date" id="fee-date" class="form-input">
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Receipt No (Optional)</label>
+                    <input type="text" id="fee-receipt" class="form-input" placeholder="Receipt/UPI ref">
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-outline" onclick="closeModal('fee')"><i class="fas fa-times"></i> Cancel</button>
+                <button class="btn btn-primary" onclick="saveFee()"><i class="fas fa-save"></i> Save Payment</button>
+            </div>
+        </div>
+    </div>
+
+<div class="modal-overlay" id="bus-modal">
+        <div class="modal">
+            <div class="modal-header"><h3 class="text-lg font-semibold" id="bus-modal-title">Add/Edit Bus</h3><button class="text-gray-400 hover:text-gray-600" onclick="closeModal('bus')"><i class="fas fa-times"></i></button></div>
+            <div class="modal-body">
+                <input type="hidden" id="bus-edit-id">
+                
+                <!-- Basic Info -->
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+                    <div class="form-group">
+                        <label class="form-label">Bus ID <span class="text-red-500">*</span></label>
+                <input type="text" id="bus-id" class="form-input" required placeholder="1-999 (Enter/Tab→next)" maxlength="3" inputmode="numeric">
+
+
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Bus Number <span class="text-red-500">*</span></label>
+                        <input type="text" id="bus-number" class="form-input" placeholder="AP16AB1234" required>
+                    </div>
+                </div>
+
+                <div class="form-group mb-4">
+                    <label class="form-label">Route <span class="text-red-500">*</span></label>
+                    <input type="text" id="bus-route" class="form-input" placeholder="Vijayawada - Guntur" required>
+                </div>
+
+                <!-- Driver Details -->
+                <div class="card p-4 mb-4">
+                    <h4 class="font-semibold mb-3 flex items-center"><i class="fas fa-user text-sky-500 mr-2"></i>Driver Details</h4>
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div class="form-group">
+                            <label class="form-label">Driver Name <span class="text-red-500">*</span></label>
+                            <input type="text" id="bus-driver" class="form-input" required>
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">Contact <span class="text-red-500">*</span></label>
+                            <input type="tel" id="bus-contact" class="form-input" required>
+                        </div>
+                    </div>
+                    <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mt-3">
+                        <div class="form-group">
+                            <label class="form-label">Experience (years)</label>
+                            <input type="number" id="bus-driver-exp" class="form-input" min="0" max="30" placeholder="5">
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">Rating (1-5)</label>
+                            <input type="number" id="bus-driver-rating" class="form-input" min="1" max="5" step="0.1" placeholder="4.5">
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">Verified</label>
+                            <label class="flex items-center gap-2 cursor-pointer">
+                                <input type="checkbox" id="bus-driver-verified" class="rounded">
+                                <span class="text-sm text-green-600 font-medium">Verified Driver</span>
+                            </label>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Coordinators -->
+                <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-4">
+                    <div class="card p-4">
+                        <h4 class="font-semibold mb-3 flex items-center"><i class="fas fa-user-tie text-purple-500 mr-2"></i>Staff Coordinator</h4>
+                        <div class="form-group">
+                            <label class="form-label">Name</label>
+                            <input type="text" id="bus-staff-name" class="form-input">
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">Staff ID</label>
+                            <input type="text" id="bus-staff-id" class="form-input" placeholder="S001">
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">Mobile</label>
+                            <input type="tel" id="bus-staff-mobile" class="form-input">
+                        </div>
+                    </div>
+                    <div class="card p-4">
+                        <h4 class="font-semibold mb-3 flex items-center"><i class="fas fa-user-graduate text-emerald-500 mr-2"></i>Student Coordinator</h4>
+                        <div class="form-group">
+                            <label class="form-label">Name</label>
+                            <input type="text" id="bus-student-coord-name" class="form-input">
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">Mobile</label>
+                            <input type="tel" id="bus-student-coord-mobile" class="form-input">
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Transport & Stops -->
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+                    <div class="form-group">
+                        <label class="form-label">College Transport Number</label>
+                        <input type="tel" id="bus-transport-number" class="form-input" value="8121650557" placeholder="8121650557">
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Fee Deadline</label>
+                        <input type="date" id="bus-fee-deadline" class="form-input">
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label">Stops (JSON format w/ pickup_time)</label>
+                    <textarea id="bus-stops" class="form-input" rows="3" placeholder='[{"name":"Benz Circle","pickup_time":"07:15"},{"name":"Governor Peta","pickup_time":"07:25"}]'></textarea>
+                    <p class="text-xs text-gray-500 mt-1">Format: [{"name":"Stop","pickup_time":"HH:MM"}]</p>
+                </div>
+
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-outline" onclick="closeModal('bus')"><i class="fas fa-times"></i> Cancel</button>
+                <button class="btn btn-primary" onclick="saveBus()"><i class="fas fa-save"></i> Save Bus</button>
+            </div>
+        </div>
+    </div>
+    </div>
+
+    <div class="modal-overlay" id="move-modal">
+        <div class="modal">
+            <div class="modal-header"><h3 class="text-lg font-semibold">Move Student</h3><button class="text-gray-400" onclick="closeModal('move')"><i class="fas fa-times"></i></button></div>
+            <div class="modal-body">
+                <p><strong>Student:</strong> <span id="move-student-name"></span></p>
+                <p><strong>Current Bus:</strong> <span id="move-current-bus"></span></p>
+                <input type="hidden" id="move-student-roll">
+                <div class="form-group mt-4"><label class="form-label">New Bus *</label><select id="move-new-bus" class="form-select"><option value="">Select Bus</option></select></div>
+            </div>
+            <div class="modal-footer"><button class="btn btn-outline" onclick="closeModal('move')">Cancel</button><button class="btn btn-primary" onclick="confirmMoveStudent()">Move</button></div>
+        </div>
+    </div>
+
+    <div class="toast-container" id="toast-container"></div>
+
+<script>
+        var currentUser = null;
+        function toggleSidebar() {
+            const sidebar = document.querySelector('.sidebar');
+            sidebar.classList.toggle('open');
+        }
+        var studentsData = [];
+        var busesData = [];
+        var feesData = [];
+        var adminMap = null;
+        var trackingMap = null;
+        var busMarkers = {};
+        var trackingMarkers = {};
+        var stopsData = {}; // Store stops for each bus
+
+        document.addEventListener('DOMContentLoaded', function() {
+            setupEventListeners();
+            checkAdminAuth();
+        });
+
+        function setupEventListeners() {
+            document.getElementById('admin-login-form').addEventListener('submit', handleAdminLogin);
+            document.getElementById('logout-btn').addEventListener('click', handleLogout);
+            document.querySelectorAll('.nav-item[data-page]').forEach(function(item) {
+                item.addEventListener('click', function() {
+                    navigateTo(this.getAttribute('data-page'));
+                });
+            });
+            document.getElementById('student-search').addEventListener('input', filterStudents);
+            document.getElementById('fee-search').addEventListener('input', filterFees);
+            document.getElementById('bus-filter').addEventListener('change', filterStudents);
+            document.getElementById('fee-status-filter').addEventListener('change', filterFees);
+            document.getElementById('fee-bus-filter').addEventListener('change', filterFees);
+            document.getElementById('notification-target').addEventListener('change', function() {
+                document.getElementById('bus-select-group').classList.toggle('hidden', this.value !== 'bus');
+                document.getElementById('student-select-group').classList.toggle('hidden', this.value !== 'individual');
+            });
+            document.querySelectorAll('.modal-overlay').forEach(function(overlay) {
+                overlay.addEventListener('click', function(e) {
+                    if (e.target === overlay) overlay.classList.remove('active');
+                });
+            });
+
+            // Fix Bus ID entering: Robust Enter/Tab handling (1-3 digits only)
+// Bus ID: Manual entry only (1-999), NO auto Enter/Tab - Admin types fully
+            var busIdInput = document.getElementById('bus-id');
+            if (busIdInput) {
+                // MANUAL entry: strip non-digits, clamp 1-3 chars (1-999 only)
+                busIdInput.addEventListener('input', function() {
+                    let val = this.value.replace(/[^0-9]/g, '');
+                    if (val.length > 3) val = val.slice(0, 3);
+                    const num = parseInt(val, 10);
+                    if (isNaN(num) || num < 1 || num > 999) {
+                        val = '';
+                    }
+                    this.value = val;
+                });
+                // NO Enter/Tab auto-focus - Admin manually tabs/enters
+            }
+        }
+
+        function checkAdminAuth() {
+            var session = sessionStorage.getItem('adminSession');
+            if (session) {
+                currentUser = JSON.parse(session);
+                showDashboard();
+            }
+        }
+
+        function handleAdminLogin(e) {
+            e.preventDefault();
+            var roll = document.getElementById('admin-roll').value.trim();
+            var password = document.getElementById('admin-password').value.trim();
+            
+            if (!roll || !password) {
+                showToast('Please enter roll number and password', 'error');
+                return;
+            }
+            
+            // Check Firebase for admin credentials
+            firebase.database().ref('admins/' + roll).once('value', function(snapshot) {
+                if (snapshot.exists()) {
+                    var adminData = snapshot.val();
+                    if (adminData.password === password) {
+                        currentUser = { roll: roll, name: adminData.name || 'Admin' };
+                        sessionStorage.setItem('adminSession', JSON.stringify(currentUser));
+                        showDashboard();
+                        showToast('Welcome, ' + (adminData.name || 'Admin') + '!', 'success');
+                    } else {
+                        showToast('Invalid password', 'error');
+                    }
+                } else {
+                    // Fallback to hardcoded credentials for demo
+                    if (roll === '229' && password === '299#') {
+                        currentUser = { roll: '229', name: 'Admin' };
+                        sessionStorage.setItem('adminSession', JSON.stringify(currentUser));
+                        showDashboard();
+                        showToast('Welcome back, Admin!', 'success');
+                    } else {
+                        showToast('Invalid credentials', 'error');
+                    }
+                }
+            }).catch(function(error) {
+                console.error('Login error:', error);
+                // Fallback to hardcoded credentials if Firebase fails
+                if (roll === '229' && password === '299#') {
+                    currentUser = { roll: '229', name: 'Admin' };
+                    sessionStorage.setItem('adminSession', JSON.stringify(currentUser));
+                    showDashboard();
+                    showToast('Welcome back, Admin!', 'success');
+                } else {
+                    showToast('Invalid credentials', 'error');
+                }
+            });
+        }
+
+        function handleLogout() {
+            sessionStorage.removeItem('adminSession');
+            currentUser = null;
+            document.getElementById('dashboard').classList.add('hidden');
+            document.getElementById('login-section').classList.remove('hidden');
+        }
+
+        function showDashboard() {
+            document.getElementById('login-section').classList.add('hidden');
+            document.getElementById('dashboard').classList.remove('hidden');
+            loadAllData();
+            initAdminMap();
+            setupRealTimeListeners();
+        }
+
+        // Real-time listeners for instant sync
+        function setupRealTimeListeners() {
+            // Real-time fee listener - updates student fee status instantly
+            firebase.database().ref('fees').on('child_changed', function(snapshot) {
+                var feeData = snapshot.val();
+                var rollNumber = snapshot.key;
+                
+                // Update or add fee data
+                var existingFee = feesData.find(function(f) { return f.rollNumber === rollNumber; });
+                if (existingFee) {
+                    existingFee.totalFee = feeData.totalFee;
+                    existingFee.paid = feeData.paid;
+                } else {
+                    feesData.push({ rollNumber: rollNumber, totalFee: feeData.totalFee, paid: feeData.paid });
+                }
+                
+                // Update UI
+                updateStudentsTable();
+                updateFeeTable();
+                updateFeeStats();
+                
+                // Show toast notification
+                showToast('Fee updated for ' + rollNumber, 'success');
+            });
+
+            // Real-time fee listener for new fees
+            firebase.database().ref('fees').on('child_added', function(snapshot) {
+                var feeData = snapshot.val();
+                var rollNumber = snapshot.key;
+                
+                var existingFee = feesData.find(function(f) { return f.rollNumber === rollNumber; });
+                if (!existingFee) {
+                    feesData.push({ rollNumber: rollNumber, totalFee: feeData.totalFee, paid: feeData.paid });
+                    updateStudentsTable();
+                    updateFeeTable();
+                    updateFeeStats();
+                }
+            });
+
+            // Real-time attendance listener for all buses
+            setupAttendanceRealTimeListener();
+        }
+
+// Real-time attendance listener
+        var attendanceInterval = null;
+        var attendanceListenersSetup = false;
+        
+        function setupAttendanceRealTimeListener() {
+            // Set up Firebase listeners for real-time attendance
+            if (attendanceListenersSetup) return;
+            attendanceListenersSetup = true;
+            
+            // Listen for new attendance records in busAttendance
+            firebase.database().ref('busAttendance').on('child_added', function(snapshot) {
+                var busId = snapshot.key.replace('bus', '');
+                var currentBusFilter = document.getElementById('attendance-bus-filter').value;
+                
+                // Only reload if viewing this bus
+                if (currentBusFilter == busId && document.getElementById('page-attendance') && !document.getElementById('page-attendance').classList.contains('hidden')) {
+                    loadAttendanceData();
+                }
+            });
+            
+            // Also listen to attendance node
+            firebase.database().ref('attendance').on('child_added', function(snapshot) {
+                var currentBusFilter = document.getElementById('attendance-bus-filter').value;
+                if (currentBusFilter && document.getElementById('page-attendance') && !document.getElementById('page-attendance').classList.contains('hidden')) {
+                    loadAttendanceData();
+                }
+            });
+            
+            // Poll every 3 seconds as backup
+            if (attendanceInterval) clearInterval(attendanceInterval);
+            
+            attendanceInterval = setInterval(function() {
+                var busId = document.getElementById('attendance-bus-filter').value;
+                if (busId && document.getElementById('page-attendance') && !document.getElementById('page-attendance').classList.contains('hidden')) {
+                    loadAttendanceData();
+                }
+            }, 3000);
+        }
+
+        function loadAllData() { loadStudents(); loadBuses(); loadFees(); loadNotifications(); }
+
+function loadStudents() {
+            firebase.database().ref('students').once('value', function(snapshot) {
+                studentsData = [];
+                if (snapshot.exists()) {
+                    snapshot.forEach(function(child) {
+                        studentsData.push({ rollNumber: child.key, ...child.val() });
+                    });
+                }
+                updateStudentsTable();
+                updateBusFilters();
+                updateNotificationStudentDropdown();
+                document.getElementById('total-students').textContent = studentsData.length;
+            });
+        }
+
+        function loadBuses() {
+            firebase.database().ref('buses').once('value', function(snapshot) {
+                busesData = [];
+                stopsData = {};
+                if (snapshot.exists()) {
+                    snapshot.forEach(function(child) {
+                        var busData = child.val();
+                        busesData.push({ id: child.key, ...busData });
+                        // Store stops properly (array or JSON)
+                        if (Array.isArray(busData.stops)) {
+                            stopsData[child.key] = busData.stops.map(s => s.name || s);
+                        } else if (typeof busData.stops === 'string') {
+                            stopsData[child.key] = busData.stops.split(',').map(s => s.trim());
+                        }
+                    });
+                }
+                
+                console.log('Loaded', busesData.length, 'buses from Firebase');
+                
+                updateBusesTable();
+                updateBusCards();
+                updateBusDropdowns();
+            });
+        }
+
+        function loadFees() {
+            firebase.database().ref('fees').once('value', function(snapshot) {
+                feesData = [];
+                if (snapshot.exists()) {
+                    snapshot.forEach(function(child) {
+                        feesData.push({ rollNumber: child.key, ...child.val() });
+                    });
+                }
+                updateFeeTable();
+                updateFeeStats();
+            });
+        }
+
+        function loadNotifications() {
+            firebase.database().ref('notifications').orderByChild('timestamp').limitToLast(20).once('value', function(snapshot) {
+                var container = document.getElementById('notification-history');
+                container.innerHTML = '';
+                if (snapshot.exists()) {
+                    var notifs = [];
+                    snapshot.forEach(function(child) { notifs.push(child.val()); });
+                    notifs.reverse().forEach(function(n) {
+                        var div = document.createElement('div');
+                        div.className = 'notification-item';
+                        div.innerHTML = '<p class="text-sm">' + (n.message || 'Notification') + '</p><p class="text-xs text-gray-500">' + formatDate(n.timestamp) + '</p>';
+                        container.appendChild(div);
+                    });
+                } else {
+                    container.innerHTML = '<p class="text-gray-500 text-center py-8">No notifications</p>';
+                }
+            });
+        }
+
+        function navigateTo(page) {
+            // FORCE CLOSE ALL MODALS + HIDE FOOTERS on page change
+            document.querySelectorAll('.modal-overlay').forEach(m => {
+                m.classList.remove('active');
+            });
+            clearExtraFooters();
+            
+            document.querySelectorAll('.nav-item').forEach(function(item) {
+                item.classList.remove('active');
+                if (item.getAttribute('data-page') === page) item.classList.add('active');
+            });
+            var titles = { 'dashboard': 'Dashboard', 'tracking': 'Live Tracking', 'students': 'Student Management', 'fees': 'Fee Management', 'notifications': 'Notifications', 'buses': 'Bus Management', 'attendance': 'Attendance' };
+            document.getElementById('page-title').textContent = titles[page] || 'Dashboard';
+            document.querySelectorAll('.page-content').forEach(function(c) { c.classList.add('hidden'); });
+            document.getElementById('page-' + page).classList.remove('hidden');
+            if (page === 'tracking' && !trackingMap) setTimeout(initTrackingMap, 100);
+            if (page === 'attendance') loadAttendanceData();
+        }
+
+        function initAdminMap() {
+            if (adminMap) return;
+            adminMap = L.map('admin-map').setView([16.7, 81.1], 11);
+            L.tileLayer('https://mt0.google.com/vt/lyrs=m&x={x}&y={y}&z={z}', { maxZoom: 20 }).addTo(adminMap);
+            L.marker([16.696499056086402, 81.05052784442461]).addTo(adminMap).bindPopup('<b>College</b>');
+            loadBusLocationsForMap();
+        }
+
+        function initTrackingMap() {
+            if (trackingMap) return;
+            trackingMap = L.map('tracking-map').setView([16.7, 81.1], 11);
+            L.tileLayer('https://mt0.google.com/vt/lyrs=m&x={x}&y={y}&z={z}', { maxZoom: 20 }).addTo(trackingMap);
+            L.marker([16.696499056086402, 81.05052784442461]).addTo(trackingMap).bindPopup('<b>College</b>');
+            loadBusLocationsForTracking();
+        }
+
+        function loadBusLocationsForMap() {
+            // Use Firebase for live locations on dashboard map
+            firebase.database().ref('bus_locations').once('value', function(snapshot) {
+                if (snapshot.exists()) {
+                    snapshot.forEach(function(child) {
+                        var busData = child.val();
+                        var lat = busData.lat;
+                        var lng = busData.lng;
+                        if (lat && lng) {
+                            addBusMarkerToMap(child.key, { lat: lat, lng: lng, route: busesData.find(function(b) { return b.id == child.key; }) ? busesData.find(function(b) { return b.id == child.key; }).route : null, number: busesData.find(function(b) { return b.id == child.key; }) ? busesData.find(function(b) { return b.id == child.key; }).number : null });
+                            updateBusLocationInData(child.key, { lat: lat, lng: lng });
+                        }
+                    });
+                }
+            });
+            
+            firebase.database().ref('bus_locations').on('child_changed', function(snapshot) {
+                var busData = snapshot.val();
+                var lat = busData.lat;
+                var lng = busData.lng;
+                if (lat && lng) {
+                    addBusMarkerToMap(snapshot.key, { lat: lat, lng: lng, route: busesData.find(function(b) { return b.id == snapshot.key; }) ? busesData.find(function(b) { return b.id == snapshot.key; }).route : null, number: busesData.find(function(b) { return b.id == snapshot.key; }) ? busesData.find(function(b) { return b.id == snapshot.key; }).number : null });
+                    updateBusLocationInData(snapshot.key, { lat: lat, lng: lng });
+                }
+            });
+            
+            // COMMENTED OUT WRONG buses listener - use bus_locations only
+            /*
+            firebase.database().ref('buses').on('child_added', function(snapshot) {
+                var busData = snapshot.val();
+                var lat = busData.location ? (busData.location.lat || busData.location.latitude) : null;
+                var lng = busData.location ? (busData.location.lng || busData.location.longitude) : null;
+                if (lat && lng) {
+                    addBusMarkerToMap(snapshot.key, { location: { lat: lat, lng: lng }, route: busData.route, number: busData.number });
+                    updateBusLocationInData(snapshot.key, { location: { lat: lat, lng: lng } });
+                }
+            });
+            */
+        }
+
+        function loadBusLocationsForTracking() {
+            // Use Firebase for live locations
+            firebase.database().ref('buses').once('value', function(snapshot) {
+                if (snapshot.exists()) {
+                    snapshot.forEach(function(child) {
+                        var busData = child.val();
+                        var lat = busData.location ? (busData.location.lat || busData.location.latitude) : null;
+                        var lng = busData.location ? (busData.location.lng || busData.location.longitude) : null;
+                        if (lat && lng) {
+                            addBusMarkerToTracking(child.key, { location: { lat: lat, lng: lng }, route: busData.route, number: busData.number, driver: busData.driver });
+                            updateBusLocationInData(child.key, { location: { lat: lat, lng: lng } });
+                        }
+                    });
+                }
+            });
+            
+            // Listen for real-time updates
+            firebase.database().ref('buses').on('child_changed', function(snapshot) {
+                var busData = snapshot.val();
+                var lat = busData.location ? (busData.location.lat || busData.location.latitude) : null;
+                var lng = busData.location ? (busData.location.lng || busData.location.longitude) : null;
+                if (lat && lng) {
+                    addBusMarkerToTracking(snapshot.key, { location: { lat: lat, lng: lng }, route: busData.route, number: busData.number, driver: busData.driver });
+                    updateBusLocationInData(snapshot.key, { location: { lat: lat, lng: lng } });
+                }
+            });
+            
+            // Also listen for new buses being added
+            firebase.database().ref('buses').on('child_added', function(snapshot) {
+                var busData = snapshot.val();
+                var lat = busData.location ? (busData.location.lat || busData.location.latitude) : null;
+                var lng = busData.location ? (busData.location.lng || busData.location.longitude) : null;
+                if (lat && lng) {
+                    addBusMarkerToTracking(snapshot.key, { location: { lat: lat, lng: lng }, route: busData.route, number: busData.number, driver: busData.driver });
+                    updateBusLocationInData(snapshot.key, { location: { lat: lat, lng: lng } });
+                }
+            });
+
+            // NEW bus_locations listener (Plan Step 2)
+            firebase.database().ref('bus_locations').on('value', function(snapshot) {
+                const data = snapshot.val();
+                if (!data) return;
+
+                for (let busId in data) {
+                    const { lat, lng } = data[busId];
+
+                    addBusMarkerToTracking(busId, {
+                        location: { lat, lng }
+                    });
+
+                    updateBusLocationInData(busId, {
+                        location: { lat, lng }
+                    });
+                }
+            });
+        }
+        
+        function updateBusLocationInData(busId, busData) {
+            // Update or add bus to busesData if it has location
+            var existingBus = busesData.find(function(b) { return b.id == busId; });
+            if (busData.lat) {
+                if (existingBus) {
+                    existingBus.location = {
+                        lat: busData.lat,
+                        lng: busData.lng
+                    };
+                } else {
+                    busesData.push({ id: busId, location: { lat: busData.lat, lng: busData.lng }, number: 'Bus ' + busId });
+                }
+                // Update UI to show active status
+                updateBusCards();
+                updateBusesTable();
+            }
+        }
+
+        function addBusMarkerToMap(busId, bus) {
+            const lat = bus.lat || (bus.location && bus.location.lat);
+            const lng = bus.lng || (bus.location && bus.location.lng);
+            if (!lat || !lng) return;
+            if (adminMap) {
+                var marker = L.marker([lat, lng], {
+                    icon: L.divIcon({ className: 'bus-marker-admin', html: busId, iconSize: [30, 30] })
+                }).addTo(adminMap);
+                marker.bindPopup('<b>Bus ' + busId + '</b><br>' + (bus.route || ''));
+                busMarkers[busId] = marker;
+            }
+        }
+
+        function addBusMarkerToTracking(busId, bus) {
+            const lat = bus.lat || (bus.location && bus.location.lat);
+            const lng = bus.lng || (bus.location && bus.location.lng);
+            if (!lat || !lng || !trackingMap) return;
+            if (trackingMarkers[busId]) trackingMap.removeLayer(trackingMarkers[busId]);
+            var marker = L.marker([lat, lng], {
+                icon: L.divIcon({ className: 'bus-marker-admin', html: busId, iconSize: [30, 30] })
+            }).addTo(trackingMap);
+            marker.bindPopup('<b>Bus ' + busId + '</b><br>' + (bus.route || '') + '<br>Driver: ' + (bus.driver || 'N/A'));
+            trackingMarkers[busId] = marker;
+        }
+
+        function updateStudentsTable() {
+            var tbody = document.getElementById('students-tbody');
+            var search = document.getElementById('student-search').value.toLowerCase();
+            var busFilter = document.getElementById('bus-filter').value;
+            var filtered = studentsData.filter(function(s) {
+                var matchSearch = (s.name || '').toLowerCase().includes(search) || (s.rollNumber || '').toLowerCase().includes(search);
+                var matchBus = !busFilter || s.busId == busFilter;
+                return matchSearch && matchBus;
+            });
+            if (filtered.length === 0) { tbody.innerHTML = '<tr><td colspan="8" class="text-center py-8 text-gray-500">No students</td></tr>'; return; }
+            tbody.innerHTML = filtered.map(function(student) {
+                var feeStatus = getStudentFeeStatus(student.rollNumber);
+                var bus = busesData.find(function(b) { return b.id == student.busId; });
+                var busNumber = bus ? bus.number : 'N/A';
+return '<tr><td class="font-medium">' + student.rollNumber + '</td><td>' + (student.name || 'N/A') + '</td><td>' + (busNumber || 'Not Assigned') + '</td><td>' + (student.boardingPoint || 'N/A') + '</td><td>₹' + (student.busFee || 0) + '</td><td>' + (student.phone || 'N/A') + '</td><td><span class="badge ' + feeStatus.badge + '">' + feeStatus.status + '</span></td><td><div class="flex gap-1"><button class="btn btn-action-edit py-1 px-2 rounded text-white text-xs" title="Edit" onclick="editStudent(\'' + student.rollNumber + '\')"><i class="fas fa-edit"></i></button><button class="btn btn-action-move py-1 px-2 rounded text-white text-xs" title="Move" onclick="openMoveModal(\'' + student.rollNumber + '\')"><i class="fas fa-exchange-alt"></i></button><button class="btn btn-action-delete py-1 px-2 rounded text-white text-xs" title="Delete" onclick="deleteStudent(\'' + student.rollNumber + '\')"><i class="fas fa-trash"></i></button></div></td></tr>';
+            }).join('');
+        }
+
+        function getStudentFeeStatus(rollNumber) {
+            var fee = feesData.find(function(f) { return f.rollNumber === rollNumber; });
+            if (!fee) return { status: 'Pending', badge: 'badge-warning' };
+            var due = (fee.totalFee || 0) - (fee.paid || 0);
+            if (due <= 0) return { status: 'Paid', badge: 'badge-success' };
+            return { status: 'Due: ₹' + due, badge: 'badge-danger' };
+        }
+
+        function filterStudents() { updateStudentsTable(); }
+
+        function updateBusFilters() {
+            var opts = '<option value="">All Buses</option>';
+            var selOpts = '<option value="">Select Bus</option>';
+            busesData.forEach(function(b) {
+                var label = b.number ? b.number + ' - ' + b.route : 'Bus ' + b.id;
+                opts += '<option value="' + b.id + '">' + label + '</option>';
+                selOpts += '<option value="' + b.id + '">' + label + '</option>';
+            });
+            document.getElementById('bus-filter').innerHTML = opts;
+            document.getElementById('student-bus').innerHTML = selOpts;
+            document.getElementById('move-new-bus').innerHTML = selOpts;
+            document.getElementById('notification-bus').innerHTML = selOpts;
+            
+            // Also update fee bus filter
+            document.getElementById('fee-bus-filter').innerHTML = '<option value="">All Buses</option>' + opts;
+        }
+
+function updateBoardingPoints() {
+            var busId = document.getElementById('student-bus').value;
+            var boardingSelect = document.getElementById('student-boarding');
+            boardingSelect.innerHTML = '<option value="">Select Stop</option>';
+            
+            if (busId) {
+                // Load real bus stops from Firebase buses/busId/stops array
+                firebase.database().ref('buses/' + busId + '/stops').once('value', function(snapshot) {
+                    if (snapshot.exists()) {
+                        var stops = snapshot.val();
+                        if (Array.isArray(stops)) {
+                            stops.forEach(function(stop) {
+                                var stopName = stop.name || stop;
+                                var pickupTime = stop.pickup_time || '';
+                                var displayText = stopName + (pickupTime ? ' (' + pickupTime + ')' : '');
+                                boardingSelect.innerHTML += '<option value="' + stopName + '">' + displayText + '</option>';
+                            });
+                        } else {
+                            // Fallback comma string
+                            var stopList = stops.split(',').map(s => s.trim());
+                            stopList.forEach(function(stop) {
+                                boardingSelect.innerHTML += '<option value="' + stop + '">' + stop + '</option>';
+                            });
+                        }
+                    }
+                });
+            }
+        }
+
+        function loadStudentFee() {
+            var roll = document.getElementById('fee-roll').value.trim();
+            var student = studentsData.find(function(s) { return s.rollNumber === roll; });
+            
+            if (student) {
+                document.getElementById('fee-student-name').value = student.name || '';
+                var bus = busesData.find(function(b) { return b.id == student.busId; });
+                document.getElementById('fee-bus-number').value = bus ? bus.number : '';
+                document.getElementById('fee-boarding').value = student.boardingPoint || '';
+                document.getElementById('fee-total').value = student.busFee || 0;
+            } else {
+                document.getElementById('fee-student-name').value = '';
+                document.getElementById('fee-bus-number').value = '';
+                document.getElementById('fee-boarding').value = '';
+                document.getElementById('fee-total').value = '';
+            }
+        }
+
+        function updateFeeTable() {
+            var tbody = document.getElementById('fee-tbody');
+            var search = document.getElementById('fee-search').value.toLowerCase();
+            var statusFilter = document.getElementById('fee-status-filter').value;
+            var busFilter = document.getElementById('fee-bus-filter').value;
+            
+            var filtered = feesData.filter(function(f) {
+                var student = studentsData.find(function(s) { return s.rollNumber === f.rollNumber; });
+                var matchSearch = (f.rollNumber || '').toLowerCase().includes(search) || (student && (student.name || '').toLowerCase().includes(search));
+                var matchStatus = !statusFilter || getFeeStatus(f) === statusFilter;
+                var matchBus = !busFilter || (student && student.busId == busFilter);
+                return matchSearch && matchStatus && matchBus;
+            });
+            if (filtered.length === 0) { tbody.innerHTML = '<tr><td colspan="9" class="text-center py-8 text-gray-500">No records</td></tr>'; return; }
+            tbody.innerHTML = filtered.map(function(fee) {
+                var student = studentsData.find(function(s) { return s.rollNumber === fee.rollNumber; });
+                var bus = student ? busesData.find(function(b) { return b.id == student.busId; }) : null;
+                var total = fee.totalFee || 0;
+                var paid = fee.paid || 0;
+                var due = total - paid;
+                var status = getFeeStatus(fee);
+return '<tr><td>' + fee.rollNumber + '</td><td>' + (student ? student.name : 'N/A') + '</td><td>' + (bus ? bus.number : 'N/A') + '</td><td>' + (student ? student.boardingPoint : 'N/A') + '</td><td>₹' + total + '</td><td>₹' + paid + '</td><td class="' + (due > 0 ? 'text-red-600' : 'text-green-600') + '">₹' + due + '</td><td><span class="badge ' + getFeeBadgeClass(status) + '">' + status + '</span></td><td><div class="flex gap-1"><button class="btn btn-success py-1 px-2 rounded text-white text-xs" title="Mark Paid" onclick="markAsPaid(\'' + fee.rollNumber + '\')"><i class="fas fa-check"></i></button><button class="btn btn-action-delete py-1 px-2 rounded text-white text-xs" title="Delete" onclick="deleteFee(\'' + fee.rollNumber + '\')"><i class="fas fa-trash"></i></button></div></td></tr>';
+            }).join('');
+        }
+
+        function getFeeStatus(fee) {
+            var total = fee.totalFee || 0;
+            var paid = fee.paid || 0;
+            if (paid >= total) return 'paid';
+            if (paid > 0) return 'pending';
+            return 'overdue';
+        }
+
+        function getFeeBadgeClass(status) {
+            if (status === 'paid') return 'badge-success';
+            if (status === 'pending') return 'badge-warning';
+            return 'badge-danger';
+        }
+
+        function filterFees() { updateFeeTable(); }
+
+        function updateFeeStats() {
+            var totalFee = 0, totalPaid = 0, paidCount = 0, pendingCount = 0, overdueCount = 0;
+            feesData.forEach(function(fee) {
+                totalFee += fee.totalFee || 0;
+                totalPaid += fee.paid || 0;
+                var status = getFeeStatus(fee);
+                if (status === 'paid') paidCount++;
+                else if (status === 'pending') pendingCount++;
+                else overdueCount++;
+            });
+            document.getElementById('total-fee-amount').textContent = '₹' + totalFee;
+            document.getElementById('total-collected').textContent = '₹' + totalPaid;
+            document.getElementById('total-due').textContent = '₹' + (totalFee - totalPaid);
+            var rate = totalFee > 0 ? Math.round((totalPaid / totalFee) * 100) : 0;
+            document.getElementById('collection-rate').textContent = rate + '%';
+            document.getElementById('fee-collected').textContent = '₹' + totalPaid;
+            document.getElementById('pending-dues').textContent = feesData.length - paidCount;
+            document.getElementById('fee-paid-count').textContent = paidCount;
+            document.getElementById('fee-pending-count').textContent = pendingCount;
+            document.getElementById('fee-overdue-count').textContent = overdueCount;
+        }
+
+        function updateBusesTable() {
+            var tbody = document.getElementById('buses-tbody');
+            if (busesData.length === 0) { tbody.innerHTML = '<tr><td colspan="8" class="text-center py-8 text-gray-500">No buses</td></tr>'; return; }
+            tbody.innerHTML = busesData.map(function(bus) {
+                var count = studentsData.filter(function(s) { return s.busId == bus.id; }).length;
+                var hasLoc = bus.location && bus.location.lat;
+                var driverName = (bus.driver && bus.driver.name) ? bus.driver.name : 'N/A';
+                var driverContact = (bus.driver && bus.driver.phone) ? bus.driver.phone : 'N/A';
+                return '<tr><td class="font-medium">' + bus.id + '</td><td>' + (bus.number || 'N/A') + '</td><td>' + (bus.route || 'N/A') + '</td><td>' + driverName + '</td><td>' + driverContact + '</td><td>' + count + '</td><td><span class="badge ' + (hasLoc ? 'badge-success' : 'badge-warning') + '">' + (hasLoc ? 'Active' : 'Inactive') + '</span></td><td><div class="flex gap-1"><button class="btn btn-action-edit py-1 px-2 rounded text-white text-xs" title="Edit" onclick="editBus(\'' + bus.id + '\')"><i class="fas fa-edit"></i></button><button class="btn btn-action-delete py-1 px-2 rounded text-white text-xs" title="Delete" onclick="deleteBus(\'' + bus.id + '\')"><i class="fas fa-trash"></i></button></div></td></tr>';
+            }).join('');
+            document.getElementById('total-buses').textContent = busesData.length;
+        }
+
+        function updateBusCards() {
+            var container = document.getElementById('bus-cards-container');
+            if (!container) return;
+            container.innerHTML = busesData.map(function(bus) {
+                var count = studentsData.filter(function(s) { return s.busId == bus.id; }).length;
+                var hasLoc = bus.location && bus.location.lat;
+                return '<div class="card"><div class="card-body"><div class="flex justify-between mb-3"><h3 class="font-semibold">' + (bus.number || 'Bus ' + bus.id) + '</h3><span class="badge ' + (hasLoc ? 'badge-success' : 'badge-warning') + '">' + (hasLoc ? 'Active' : 'Inactive') + '</span></div><p class="text-sm text-gray-600">' + (bus.route || '') + '</p><p class="text-sm mt-2"><i class="fas fa-user text-gray-400"></i> ' + (bus.driver || 'N/A') + ' | <i class="fas fa-users text-gray-400"></i> ' + count + '</p></div></div>';
+            }).join('');
+        }
+
+function updateBusDropdowns() {
+            updateBusFilters();
+            updateNotificationStudentDropdown();
+        }
+        
+        function updateNotificationStudentDropdown() {
+            var selOpts = '<option value="">Select Student</option>';
+            studentsData.forEach(function(s) {
+                selOpts += '<option value="' + s.rollNumber + '">' + (s.name || s.rollNumber) + ' (' + s.rollNumber + ')</option>';
+            });
+            document.getElementById('notification-student').innerHTML = selOpts;
+        }
+
+function sendNotification() {
+            var type = document.getElementById('notification-type').value;
+            var target = document.getElementById('notification-target').value;
+            var message = document.getElementById('notification-message').value.trim();
+            if (!message) { showToast('Enter message', 'error'); return; }
+            var data = { type: type, message: message, timestamp: Date.now(), targetType: target };
+            
+            if (target === 'all') {
+                // Save to main notifications for all
+                firebase.database().ref('notifications').push(data).then(function() {
+                    showToast('Notification sent to all!', 'success');
+                    document.getElementById('notification-message').value = '';
+                    loadNotifications();
+                }).catch(function() { showToast('Failed to send', 'error'); });
+            } else if (target === 'bus') {
+                var busId = document.getElementById('notification-bus').value;
+                data.busId = busId;
+                // Save to bus-specific notifications (students in that bus will receive it)
+                firebase.database().ref('busNotifications/bus' + busId).push(data).then(function() {
+                    showToast('Notification sent to Bus ' + busId + '!', 'success');
+                    document.getElementById('notification-message').value = '';
+                    loadNotifications();
+                }).catch(function() { showToast('Failed to send', 'error'); });
+            } else if (target === 'individual') {
+                var rollNumber = document.getElementById('notification-student').value;
+                data.rollNumber = rollNumber;
+                // Save to student-specific notifications
+                firebase.database().ref('studentNotifications/' + rollNumber).push(data).then(function() {
+                    showToast('Notification sent to ' + rollNumber + '!', 'success');
+                    document.getElementById('notification-message').value = '';
+                    loadNotifications();
+                }).catch(function() { showToast('Failed to send', 'error'); });
+            }
+        }
+
+        function clearExtraFooters() {
+            // Remove any duplicate footers across ALL modals
+            document.querySelectorAll('.modal-footer').forEach((footer, index) => {
+                if (index > 0) { // Keep only first footer per modal context
+                    footer.style.display = 'none';
+                }
+            });
+            // Clear any dynamically added buttons
+            document.querySelectorAll('button[onclick*="closeModal"]').forEach((btn, idx) => {
+                if (idx > 3) btn.remove(); // Max 4 modals expected
+            });
+        }
+
+        function openModal(type, isEdit = false) {
+            clearExtraFooters(); // Prevent duplicates FIRST
+            document.getElementById(type + '-modal').classList.add('active');
+            // Force single footer visibility
+            setTimeout(() => {
+                const modal = document.getElementById(type + '-modal');
+                const footers = modal.querySelectorAll('.modal-footer');
+                footers.forEach((f, i) => {
+                    f.style.display = i === 0 ? 'flex' : 'none';
+                });
+            }, 50);
+            if (type === 'student') {
+                if (!isEdit) {
+                    document.getElementById('student-edit-roll').value = '';
+                    document.getElementById('student-roll').value = '';
+                    document.getElementById('student-name').value = '';
+                    document.getElementById('student-bus').value = '';
+                    document.getElementById('student-boarding').innerHTML = '<option value="">Select Stop</option>';
+                    document.getElementById('student-fee').value = '';
+                    document.getElementById('student-phone').value = '';
+                    document.getElementById('student-parent-phone').value = '';
+                    document.getElementById('student-password').value = '';
+                    document.getElementById('student-modal-title').textContent = 'Add Student';
+                }
+            } else if (type === 'fee') {
+                document.getElementById('fee-edit-roll').value = '';
+                document.getElementById('fee-roll').value = '';
+                document.getElementById('fee-student-name').value = '';
+                document.getElementById('fee-bus-number').value = '';
+                document.getElementById('fee-boarding').value = '';
+                document.getElementById('fee-total').value = '';
+                document.getElementById('fee-paid').value = '0';
+                document.getElementById('fee-modal-title').textContent = 'Add Fee';
+            } else if (type === 'bus') {
+                document.getElementById('bus-edit-id').value = '';
+                document.getElementById('bus-id').value = '';
+                document.getElementById('bus-number').value = '';
+                document.getElementById('bus-route').value = '';
+                document.getElementById('bus-stops').value = '';
+                document.getElementById('bus-driver').value = '';
+                document.getElementById('bus-contact').value = '';
+                document.getElementById('bus-modal-title').textContent = 'Add Bus';
+            }
+        }
+
+        function closeModal(type) { document.getElementById(type + '-modal').classList.remove('active'); }
+
+        function saveStudent() {
+            var editRoll = document.getElementById('student-edit-roll').value.trim();
+            var isEdit = editRoll !== '';
+            
+            var roll = document.getElementById('student-roll').value.trim();
+            var name = document.getElementById('student-name').value.trim();
+            var busId = document.getElementById('student-bus').value;
+            var boarding = document.getElementById('student-boarding').value;
+            var busFee = document.getElementById('student-fee').value.trim();
+            var phone = document.getElementById('student-phone').value.trim();
+            var parentPhone = document.getElementById('student-parent-phone').value.trim();
+            var password = document.getElementById('student-password').value.trim();
+            
+            // Always require roll and name
+            if (!roll || !name) { 
+                showToast('Roll number and name are required', 'error'); 
+                return; 
+            }
+            
+            // For new students, require all key fields and password
+            if (!isEdit) {
+                if (!busId || !boarding || !busFee || !password) { 
+                    showToast('Fill all required fields for new student', 'error'); 
+                    return; 
+                }
+            }
+            
+            var data = { 
+                name: name 
+            };
+            
+            // Only update fields that have values
+            if (busId) data.busId = busId;
+            if (boarding) data.boardingPoint = boarding;
+            if (busFee) data.busFee = parseInt(busFee);
+            if (phone) data.phone = phone;
+            if (parentPhone) data.parentPhone = parentPhone;
+            if (password) data.password = password;
+            
+            var studentRef = firebase.database().ref('students/' + roll);
+            if (isEdit) {
+                studentRef.update(data).then(function() {
+                    showToast('Student updated!', 'success');
+                    closeModal('student');
+                    loadStudents();
+                }).catch(function() { showToast('Error updating student', 'error'); });
+            } else {
+                studentRef.set(data).then(function() {
+                    showToast('Student added!', 'success');
+                    closeModal('student');
+                    loadStudents();
+                }).catch(function() { showToast('Error adding student', 'error'); });
+            }
+        }
+
+function editStudent(rollNumber) {
+            var student = studentsData.find(function(s) { return s.rollNumber === rollNumber; });
+            if (student) {
+                document.getElementById('student-edit-roll').value = rollNumber;
+                document.getElementById('student-roll').value = rollNumber;
+                document.getElementById('student-name').value = student.name || '';
+                document.getElementById('student-bus').value = student.busId || '';
+                document.getElementById('student-fee').value = student.busFee || '';
+                document.getElementById('student-phone').value = student.phone || '';
+                document.getElementById('student-parent-phone').value = student.parentPhone || '';
+                document.getElementById('student-password').value = student.password || '';
+                document.getElementById('student-modal-title').textContent = 'Edit Student';
+                openModal('student', true);
+                // Load boarding points AFTER modal opens
+                setTimeout(function() {
+                    updateBoardingPoints(); // Trigger Firebase stops load
+                    setTimeout(function() {
+                        document.getElementById('student-boarding').value = student.boardingPoint || '';
+                    }, 500);
+                }, 200);
+            }
+        }
+
+        function deleteStudent(rollNumber) {
+            if (confirm('Delete student?')) {
+                firebase.database().ref('students/' + rollNumber).remove().then(function() {
+                    showToast('Deleted!', 'success');
+                    loadStudents();
+                });
+            }
+        }
+
+        function openMoveModal(rollNumber) {
+            var student = studentsData.find(function(s) { return s.rollNumber === rollNumber; });
+            if (student) {
+                document.getElementById('move-student-roll').value = rollNumber;
+                document.getElementById('move-student-name').textContent = student.name || rollNumber;
+                var bus = busesData.find(function(b) { return b.id == student.busId; });
+                document.getElementById('move-current-bus').textContent = bus ? (bus.number || 'Bus ' + bus.id) : 'Not Assigned';
+                document.getElementById('move-modal').classList.add('active');
+            }
+        }
+
+        function confirmMoveStudent() {
+            var roll = document.getElementById('move-student-roll').value;
+            var newBus = document.getElementById('move-new-bus').value;
+            if (!newBus) { showToast('Select bus', 'error'); return; }
+            firebase.database().ref('students/' + roll).update({ busId: newBus }).then(function() {
+                showToast('Moved!', 'success');
+                closeModal('move');
+                loadStudents();
+            });
+        }
+
+        function saveFee() {
+            var editRoll = document.getElementById('fee-edit-roll').value.trim();
+            var isEdit = editRoll !== '';
+            
+            var roll = document.getElementById('fee-roll').value.trim();
+            var total = parseFloat(document.getElementById('fee-total').value) || 0;
+            var paid = parseFloat(document.getElementById('fee-paid').value) || 0;
+            var mode = document.getElementById('fee-mode').value;
+            var date = document.getElementById('fee-date').value;
+            var receipt = document.getElementById('fee-receipt').value.trim();
+            
+            if (!roll) { showToast('Roll number is required', 'error'); return; }
+            if (total <= 0) { showToast('Total fee must be greater than 0', 'error'); return; }
+            
+            var data = { 
+                totalFee: total,
+                paid: paid,
+                paymentMode: mode,
+                paymentDate: date ? new Date(date).getTime() : Date.now(),
+                receiptNo: receipt,
+                lastUpdated: Date.now()
+            };
+            
+            var feeRef = firebase.database().ref('fees/' + roll);
+            if (isEdit) {
+                feeRef.update(data).then(() => {
+                    showToast('Fee updated!', 'success');
+                    closeModal('fee');
+                    loadFees();
+                }).catch(() => showToast('Error updating fee', 'error'));
+            } else {
+                feeRef.set(data).then(() => {
+                    showToast('Fee record saved!', 'success');
+                    closeModal('fee');
+                    loadFees();
+                }).catch(() => showToast('Error saving fee', 'error'));
+            }
+        }
+
+        function markAsPaid(rollNumber) {
+            var fee = feesData.find(function(f) { return f.rollNumber === rollNumber; });
+            if (fee) {
+                var updateData = { paid: fee.totalFee, lastUpdated: Date.now() };
+                
+                // Update in Firebase (single easy-22b8 for all)
+                firebase.database().ref('fees/' + rollNumber).update(updateData).then(function() {
+                    showToast('Marked as paid! Students will see it.', 'success');
+                    loadFees();
+                }).catch(function() { showToast('Error updating fee', 'error'); });
+            }
+        }
+
+        function deleteFee(rollNumber) {
+            if (confirm('Delete fee record?')) {
+                // Delete from Firebase (single easy-22b8 for all)
+                firebase.database().ref('fees/' + rollNumber).remove().then(function() {
+                    showToast('Deleted!', 'success');
+                    loadFees();
+                }).catch(function() { showToast('Error deleting fee', 'error'); });
+            }
+        }
+
+
+
+        function saveBus() {
+            var idStr = document.getElementById('bus-id').value.trim();
+            if (!idStr || idStr.length < 1 || idStr.length > 3 || !/^[0-9]+$/.test(idStr)) {
+                showToast('Bus ID must be exactly 1-3 digits only (e.g. 1, 12, 123)', 'error');
+                document.getElementById('bus-id').focus();
+                return;
+            }
+            var id = parseInt(idStr, 10);
+            if (id < 1 || id > 999) {
+                showToast('Bus ID must be between 1-999', 'error');
+                document.getElementById('bus-id').focus();
+                return;
+            }
+            
+            // Basic fields
+            var number = document.getElementById('bus-number').value.trim();
+            var route = document.getElementById('bus-route').value.trim();
+            var stopsStr = document.getElementById('bus-stops').value.trim();
+            var driverName = document.getElementById('bus-driver').value.trim();
+            var contact = document.getElementById('bus-contact').value.trim();
+            
+            if (!number || !route || !stopsStr || !driverName || !contact) { 
+                showToast('Fill all * required fields', 'error'); return; 
+            }
+            
+            // Parse stops - JSON preferred, fallback to comma
+            var stops = [];
+            try {
+                stops = JSON.parse(stopsStr);
+                if (!Array.isArray(stops)) throw 'Invalid';
+            } catch(e) {
+                // Fallback: comma-separated → simple stops
+                stops = stopsStr.split(',').map(s => s.trim()).map(name => ({name, pickup_time: ''}));
+            }
+            
+            // Driver object
+            var driver = {
+                name: driverName,
+                phone: contact,
+                verified: document.getElementById('bus-driver-verified').checked,
+                experience: parseInt(document.getElementById('bus-driver-exp').value) || 0,
+                rating: parseFloat(document.getElementById('bus-driver-rating').value) || 0
+            };
+            
+            // Coordinators
+            var staffCoord = {
+                name: document.getElementById('bus-staff-name').value.trim(),
+                staff_id: document.getElementById('bus-staff-id').value.trim(),
+                mobile: document.getElementById('bus-staff-mobile').value.trim()
+            };
+            var studentCoord = {
+                name: document.getElementById('bus-student-coord-name').value.trim(),
+                mobile: document.getElementById('bus-student-coord-mobile').value.trim()
+            };
+            
+            var data = {
+                number, route, stops, driver,
+                staff_coordinator: Object.values(staffCoord).some(v => v) ? staffCoord : null,
+                student_coordinator: Object.values(studentCoord).some(v => v) ? studentCoord : null,
+                transport: { college_number: document.getElementById('bus-transport-number').value.trim() || '8121650557' },
+                fee_deadline: document.getElementById('bus-fee-deadline').value
+            };
+            
+            // Force refresh ALL data after save
+            firebase.database().ref('buses/' + id).set(data).then(function() {
+                showToast('Bus saved! Reloading data...', 'success');
+                // Reload ALL related data immediately
+                loadBuses();
+                loadStudents();
+                loadFees();
+                closeModal('bus');
+                setTimeout(updateAllDropdowns, 500);
+            }).catch(e => showToast('Error: ' + e.message, 'error'));
+        }
+
+        function updateAllDropdowns() {
+            updateBusFilters();
+            updateNotificationStudentDropdown();
+        }
+
+function editBus(busId) {
+            var bus = busesData.find(b => b.id == busId);
+            if (!bus) return showToast('Bus not found', 'error');
+            
+            document.getElementById('bus-edit-id').value = busId;
+            document.getElementById('bus-id').value = busId;
+            // Edit mode: MANUAL edit allowed (no readonly) - Admin can change ID if needed
+            document.getElementById('bus-modal-title').textContent = `Edit Bus ${bus.number || busId}`;
+            
+            // FULL PREFILL - ALL FIELDS
+            // Basic
+            document.getElementById('bus-number').value = bus.number || '';
+            document.getElementById('bus-route').value = bus.route || '';
+            
+            // Stops as JSON (handles both formats)
+            document.getElementById('bus-stops').value = JSON.stringify(bus.stops || [], null, 2);
+            
+            // Driver (FULL)
+            var driver = bus.driver || {};
+            document.getElementById('bus-driver').value = driver.name || '';
+            document.getElementById('bus-contact').value = driver.phone || '';
+            document.getElementById('bus-driver-verified').checked = !!driver.verified;
+            document.getElementById('bus-driver-exp').value = driver.experience || '';
+            document.getElementById('bus-driver-rating').value = driver.rating || '';
+            
+            // Staff Coordinator (FULL)
+            var staff = bus.staff_coordinator || {};
+            document.getElementById('bus-staff-name').value = staff.name || '';
+            document.getElementById('bus-staff-id').value = staff.staff_id || '';
+            document.getElementById('bus-staff-mobile').value = staff.mobile || '';
+            
+            // Student Coordinator (FULL)
+            var studentCoord = bus.student_coordinator || {};
+            document.getElementById('bus-student-coord-name').value = studentCoord.name || '';
+            document.getElementById('bus-student-coord-mobile').value = studentCoord.mobile || '';
+            
+            // Transport (with fallback 8121650557)
+            document.getElementById('bus-transport-number').value = (bus.transport && bus.transport.college_number) ? bus.transport.college_number : '8121650557';
+            
+            // Fee Deadline
+            document.getElementById('bus-fee-deadline').value = bus.fee_deadline || '';
+            
+            openModal('bus');
+        }
+
+        function deleteBus(busId) {
+            if (confirm('Delete bus?')) {
+                firebase.database().ref('buses/' + busId).remove().then(function() {
+                    showToast('Deleted!', 'success');
+                    loadBuses();
+                });
+            }
+        }
+
+        function formatDate(timestamp) {
+            if (!timestamp) return 'N/A';
+            var d = new Date(timestamp);
+            return d.toLocaleDateString() + ' ' + d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+        }
+
+        function showToast(message, type) {
+            type = type || 'success';
+            var container = document.getElementById('toast-container');
+            var toast = document.createElement('div');
+            toast.className = 'toast toast-' + type;
+            toast.innerHTML = '<i class="fas fa-' + (type === 'success' ? 'check-circle' : 'times-circle') + '"></i><span>' + message + '</span>';
+            container.appendChild(toast);
+            setTimeout(function() { toast.classList.add('show'); }, 10);
+            setTimeout(function() { toast.classList.remove('show'); setTimeout(function() { toast.remove(); }, 300); }, 3000);
+        }
+
+        // Attendance functions
+        function initAttendanceBusDropdown() {
+            var select = document.getElementById('attendance-bus-filter');
+            var opts = '<option value="">Select Bus</option>';
+            busesData.forEach(function(b) {
+                var label = b.number ? b.number + ' - ' + b.route : 'Bus ' + b.id;
+                opts += '<option value="' + b.id + '">' + label + '</option>';
+            });
+            select.innerHTML = opts;
+        }
+
+        function loadAttendanceData() {
+            var busId = document.getElementById('attendance-bus-filter').value;
+            var typeFilter = document.getElementById('attendance-type-filter').value;
+            
+            if (!busId) {
+                document.getElementById('attendance-tbody').innerHTML = '<tr><td colspan="6" class="text-center py-8 text-gray-500">Select a bus to view attendance</td></tr>';
+                return;
+            }
+            
+            var busStudents = studentsData.filter(function(s) { return s.busId == busId; });
+            
+            firebase.database().ref('busAttendance/bus' + busId).orderByChild('timestamp').limitToLast(100).once('value', function(snapshot) {
+                var attendanceData = {};
+                if (snapshot.exists()) {
+                    snapshot.forEach(function(child) {
+                        var att = child.val();
+                        if (!attendanceData[att.rollnumber]) {
+                            attendanceData[att.rollnumber] = { entry: null, exit: null };
+                        }
+                        if (att.type === 'entry' && !attendanceData[att.rollnumber].entry) {
+                            attendanceData[att.rollnumber].entry = att;
+                        } else if (att.type === 'exit' && !attendanceData[att.rollnumber].exit) {
+                            attendanceData[att.rollnumber].exit = att;
+                        }
+                    });
+                }
+                
+                firebase.database().ref('attendance/bus' + busId).orderByChild('timestamp').limitToLast(200).once('value', function(snap2) {
+                    if (snap2.exists()) {
+                        snap2.forEach(function(child) {
+                            var att = child.val();
+                            if (!attendanceData[att.rollnumber]) {
+                                attendanceData[att.rollnumber] = { entry: null, exit: null };
+                            }
+                            if (att.type === 'entry' && !attendanceData[att.rollnumber].entry) {
+                                attendanceData[att.rollnumber].entry = att;
+                            } else if (att.type === 'exit' && !attendanceData[att.rollnumber].exit) {
+                                attendanceData[att.rollnumber].exit = att;
+                            }
+                        });
+                    }
+                    
+                    updateAttendanceTable(busStudents, attendanceData, typeFilter);
+                });
+            });
+        }
+
+        function updateAttendanceTable(busStudents, attendanceData, typeFilter) {
+            var tbody = document.getElementById('attendance-tbody');
+            var presentCount = 0, absentCount = 0, exitCount = 0;
+            var totalStudents = busStudents.length;
+            
+            busStudents.forEach(function(student) {
+                var att = attendanceData[student.rollNumber] || {};
+                if (att.entry) presentCount++;
+                if (att.exit) exitCount++;
+            });
+            
+            absentCount = totalStudents - presentCount;
+            
+            document.getElementById('att-total-students').textContent = totalStudents;
+            document.getElementById('att-present').textContent = presentCount;
+            document.getElementById('att-absent').textContent = absentCount;
+            document.getElementById('att-exit').textContent = exitCount;
+            
+            var filteredStudents = busStudents;
+            
+            if (typeFilter === 'entry') {
+                filteredStudents = busStudents.filter(function(s) { return attendanceData[s.rollNumber] && attendanceData[s.rollNumber].entry; });
+            } else if (typeFilter === 'exit') {
+                filteredStudents = busStudents.filter(function(s) { return attendanceData[s.rollNumber] && attendanceData[s.rollNumber].exit; });
+            }
+            
+            if (filteredStudents.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="6" class="text-center py-8 text-gray-500">No attendance records found</td></tr>';
+                return;
+            }
+            
+            tbody.innerHTML = filteredStudents.map(function(student) {
+                var att = attendanceData[student.rollNumber] || {};
+                var entryTime = att.entry ? formatTime(att.entry.timestamp) : '-';
+                var exitTime = att.exit ? formatTime(att.exit.timestamp) : '-';
+                
+                var status = 'Absent';
+                var statusClass = 'badge-danger';
+                if (att.entry && att.exit) {
+                    status = 'Complete';
+                    statusClass = 'badge-success';
+                } else if (att.entry) {
+                    status = 'Entry Only';
+                    statusClass = 'badge-warning';
+                }
+                
+                return '<tr>' +
+                    '<td class="font-medium">' + student.rollNumber + '</td>' +
+                    '<td>' + (student.name || 'N/A') + '</td>' +
+                    '<td>Bus ' + student.busId + '</td>' +
+                    '<td>' + entryTime + '</td>' +
+                    '<td>' + exitTime + '</td>' +
+                    '<td><span class="badge ' + statusClass + '">' + status + '</span></td>' +
+                '</tr>';
+            }).join('');
+        }
+
+        function formatTime(timestamp) {
+            if (!timestamp) return '-';
+            var d = new Date(timestamp);
+            return d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+        }
+
+        var originalUpdateBusDropdowns = updateBusDropdowns;
+        updateBusDropdowns = function() {
+            originalUpdateBusDropdowns();
+            initAttendanceBusDropdown();
+        };
+    </script>
+</body>
+</html>
